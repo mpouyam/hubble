@@ -31,6 +31,10 @@ def calculate_vol(box):
     if box < 4 : return 0.1
     else: return pow(c, n) * 0.1
 
+def get_symbol_pip():
+    si=mt5.symbol_info(symbol) 
+    return si.point * 10
+
 symbol = "EURUSD"
 box = 1
 cp = current_price(symbol)
@@ -71,7 +75,7 @@ request = {
 result = mt5.order_send(request)
 
 # check the execution result
-print("1. order_send(): by {} {} lots at {} with deviation={} points".format(symbol,0.1,0.123,20));
+print("1. order_send(): by {} {} lots at {} with deviation={} points".format(symbol,0.1,0.123,20))
 if result.retcode != mt5.TRADE_RETCODE_DONE:
     print("2. order_send failed, retcode={}".format(result.retcode))
     # request the result as a dictionary and display it element by element
