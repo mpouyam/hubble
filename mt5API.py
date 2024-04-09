@@ -1,20 +1,11 @@
 import datetime as dt
-import MetaTrader5 as mt5
+
 import pandas as pd
 import pytz
 
-key = open("./key.txt", "r").read().split()
-path = r"C:\Program Files\MetaTrader 5\terminal64.exe"
-
-
-# establish MetaTrader 5 connection to a specified trading account
-if mt5.initialize(path=path, login=int(key[0]), password=key[1], server=key[2]):
-    print("connection established")
 
 # extract historic data
-
-
-def get_hist_data_by_date(symbol, timeFrame, timeTill=None, numCandles=200):
+def get_hist_data_by_date(mt5, symbol, timeFrame, timeTill=None, numCandles=200):
     """
     Parametrs
     ---------
@@ -53,12 +44,8 @@ def get_hist_data_by_date(symbol, timeFrame, timeTill=None, numCandles=200):
 # index = hist_data.index
 # hist_data2 = get_hist_data_by_date("EURUSD", "TIMEFRAME_M15", dt.datetime.strftime(index[1], "%Y-%m-%d %H:%M:%S")) #get data till a specified time
 
-# print("=========================")
-# print(hist_data)
-# print("=========================")
 
-
-def get_hist_data_by_index(symbol, timeFrame, startPos=0, numCandles=2):
+def get_hist_data_by_index(mt5, symbol, timeFrame, startPos=0, numCandles=2):
     """
     Parameters
     ----------
@@ -85,7 +72,7 @@ def get_hist_data_by_index(symbol, timeFrame, startPos=0, numCandles=2):
 # hist_data = get_hist_data_by_index("EURUSD", "TIMEFRAME_M15") #get data till current time
 
 
-def place_market_order(symbol, vol, buyOrSell):
+def place_market_order(mt5, symbol, vol, buyOrSell):
     if buyOrSell.capitalize()[0] == "B":
         direcetion = mt5.ORDER_TYPE_BUY
     else:
@@ -107,7 +94,7 @@ def place_market_order(symbol, vol, buyOrSell):
     return order_status
 
 
-def place_limit_order(symbol, vol, buyOrSell, pips_away):
+def place_limit_order(mt5, symbol, vol, buyOrSell, pips_away):
     pip_unit = mt5.symbol_info(symbol).point * 10
 
     if buyOrSell.capitalize()[0] == "B":
@@ -136,14 +123,14 @@ def place_limit_order(symbol, vol, buyOrSell, pips_away):
 
 
 # order with SL and TP
-def place_bracket_order(symbol, vol, buy_sell, sl_price, tp_price):
+def place_bracket_order(mt5, symbol, vol, buy_sell, sl_price, tp_price):
     if buy_sell.capitalize()[0] == "B":
         direction = mt5.ORDER_TYPE_BUY
-        price = mt5.symbol_info_tick(symbol).ask
+        price = current_price(mt5, symbol)
 
     else:
         direction = mt5.ORDER_TYPE_SELL
-        price = mt5.symbol_info_tick(symbol).bid
+        price = current_price(mt5, symbol, ask=False)
 
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
@@ -160,7 +147,7 @@ def place_bracket_order(symbol, vol, buy_sell, sl_price, tp_price):
     return result
 
 
-def place_bracket_order_pip(symbol, vol, buy_sell, sl_pip, tp_pip):
+def place_bracket_order_pip(mt5, symbol, vol, buy_sell, sl_pip, tp_pip):
     pip_unit = 10 * mt5.symbol_info(symbol).point
     if buy_sell.capitalize()[0] == "B":
         direction = mt5.ORDER_TYPE_BUY
@@ -189,8 +176,8 @@ def place_bracket_order_pip(symbol, vol, buy_sell, sl_pip, tp_pip):
     return result
 
 
-def close_position(symbol, ticket: None):
-    if ticket != None:
+def close_position(mt5, symbol, ticket: None):
+    if ticket is None:
         mt5.Close(symbol, ticket)
     else:
         mt5.Close(symbol)
@@ -201,7 +188,7 @@ def close_position(symbol, ticket: None):
 # order_res = limit_order("EURUSD", 0.03,   "buy", 6)
 
 
-def get_position_df(symbol=None, ticket=None):
+def get_position_df(mt5, symbol=None, ticket=None):
     if symbol:
         positions = mt5.positions_get(symbol=symbol)
     elif ticket:
@@ -223,7 +210,7 @@ def get_position_df(symbol=None, ticket=None):
     return pos_df
 
 
-def get_orders_df(symbol=None, ticket=None):
+def get_orders_df(mt5, symbol=None, ticket=None):
     if symbol:
         orders = mt5.orders_get(symbol=symbol)
     elif ticket:
@@ -241,6 +228,14 @@ def get_orders_df(symbol=None, ticket=None):
     return ord_df
 
 
-print("=========================")
-# print(order_res)
-print("=========================")
+def current_price(mt5, symbol, ask=True):
+    si = mt5.symbol_info_tick(symbol)
+    if ask:
+        return si.ask
+    else:
+        return si.bid
+
+
+def get_symbol_pip_unit(mt5, symbol):
+    si = mt5.symbol_info(symbol)
+    return si.point * 10
