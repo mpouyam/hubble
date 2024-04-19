@@ -84,53 +84,41 @@ def place_market_order(mt5, symbol, vol, buyOrSell):
         "price": mt5.symbol_info_tick(symbol).ask,
         "type": direcetion,
         "type_time": mt5.ORDER_TIME_GTC,
-        # ORDER_TIME_GTC: The order stays in the queue until it is manually canceled
-        # ORDER_TIME_DAY: The order is active only during the current trading day
-        # ORDER_TIME_SPECIFIED: The order is active until the specified date
-        # ORDER_TIME_SPECIFIED_DAY: The order is active until 23:59:59 of the specified day. If this time appears to be out of a trading session, the expiration is processed at the nearest trading time.
         "type_filling": mt5.ORDER_FILLING_RETURN,
     }
     order_status = mt5.order_send(request)
     return order_status
 
 
-def place_limit_order(mt5, symbol, vol, buyOrSell, pips_away):
-    pip_unit = mt5.symbol_info(symbol).point * 10
-
+def place_pend_order(mt5, symbol, vol, buyOrSell, sl, tp, cp):
     if buyOrSell.capitalize()[0] == "B":
-        direcetion = mt5.ORDER_TYPE_BUY_LIMIT
-        price = mt5.symbol_info_tick(symbol).ask - pips_away * pip_unit
+        direction = mt5.ORDER_TYPE_BUY_STOP
     else:
-        direcetion = mt5.ORDER_TYPE_SELL_LIMIT
-        price = mt5.symbol_info_tick(symbol).bid + pips_away * pip_unit
+        direction = mt5.ORDER_TYPE_SELL_STOP
 
-    price = mt5.symbol_info(symbol).point * 10
     request = {
         "action": mt5.TRADE_ACTION_PENDING,
         "symbol": symbol,
         "volume": vol,
-        "price": price,
-        "type": direcetion,
+        "price": cp,
+        "sl": sl,
+        "tp": tp,
+        "type": direction,
         "type_time": mt5.ORDER_TIME_GTC,
-        # ORDER_TIME_GTC: The order stays in the queue until it is manually canceled
-        # ORDER_TIME_DAY: The order is active only during the current trading day
-        # ORDER_TIME_SPECIFIED: The order is active until the specified date
-        # ORDER_TIME_SPECIFIED_DAY: The order is active until 23:59:59 of the specified day. If this time appears to be out of a trading session, the expiration is processed at the nearest trading time.
         "type_filling": mt5.ORDER_FILLING_RETURN,
     }
+
     order_status = mt5.order_send(request)
     return order_status
 
 
 # order with SL and TP
-def place_bracket_order(mt5, symbol, vol, buy_sell, sl_price, tp_price):
+def place_bracket_order(mt5, symbol, vol, buy_sell, sl_price, tp_price, price):
     if buy_sell.capitalize()[0] == "B":
         direction = mt5.ORDER_TYPE_BUY
-        price = current_price(mt5, symbol)
 
     else:
         direction = mt5.ORDER_TYPE_SELL
-        price = current_price(mt5, symbol, ask=False)
 
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
@@ -142,45 +130,20 @@ def place_bracket_order(mt5, symbol, vol, buy_sell, sl_price, tp_price):
         "price": price,
         "type_time": mt5.ORDER_TIME_GTC,
     }
+    print(request)
 
     result = mt5.order_send(request)
     return result
 
 
-def place_bracket_order_pip(mt5, symbol, vol, buy_sell, sl_pip, tp_pip):
-    pip_unit = 10 * mt5.symbol_info(symbol).point
-    if buy_sell.capitalize()[0] == "B":
-        direction = mt5.ORDER_TYPE_BUY
-        price = mt5.symbol_info_tick(symbol).ask
-        sl = price - sl_pip * pip_unit
-        tp = price + tp_pip * pip_unit
-
+def close_position(mt5, ticket):
+    req = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket}
+    result = mt5.order_send(req)
+    if result.retcode == mt5.TRADE_RETCODE_DONE:
+        return True
     else:
-        direction = mt5.ORDER_TYPE_SELL
-        price = mt5.symbol_info_tick(symbol).bid
-        sl = price + sl_pip * pip_unit
-        tp = price - tp_pip * pip_unit
-
-    request = {
-        "action": mt5.TRADE_ACTION_DEAL,
-        "symbol": symbol,
-        "volume": vol,
-        "type": direction,
-        "sl": sl,
-        "tp": tp,
-        "price": price,
-        "type_time": mt5.ORDER_TIME_GTC,
-    }
-
-    result = mt5.order_send(request)
-    return result
-
-
-def close_position(mt5, symbol, ticket: None):
-    if ticket is None:
-        mt5.Close(symbol, ticket)
-    else:
-        mt5.Close(symbol)
+        print("ERROR IN 'close_position' FUNCTION : ", result.comment)
+        return False
 
 
 # place_bracket_order("USDCAD", 1.0, "buy", 1.3317, 1.3347)
@@ -188,44 +151,43 @@ def close_position(mt5, symbol, ticket: None):
 # order_res = limit_order("EURUSD", 0.03,   "buy", 6)
 
 
-def get_position_df(mt5, symbol=None, ticket=None):
-    if symbol:
-        positions = mt5.positions_get(symbol=symbol)
-    elif ticket:
-        positions = mt5.positions_get(ticket=ticket)
-    else:
-        positions = mt5.positions_get()
+def get_position_df(mt5, ticket=None):
+    positionsw = mt5.positions_get()
+    print("-------POSITION--------")
+    print(positionsw)
+    print("-----------------------")
 
+    positions = mt5.positions_get(ticket=ticket)
+    is_there_active_order = False
     if len(positions) > 0:
-        pos_df = pd.DataFrame(list(positions), columns=positions[0]._asdict().keys())
-        pos_df.time = pd.to_datetime(pos_df.time, unit="s")
-        pos_df.drop(
-            ["time_update", "time_msc", "time_update_msc", "external_id"],
-            axis=1,
-            inplace=True,
-        )
-    else:
-        pos_df = pd.DataFrame()
+        is_there_active_order = True
 
-    return pos_df
+    #     pos_df = pd.DataFrame(list(positions), columns=positions[0]._asdict().keys())
+    #     pos_df.time = pd.to_datetime(pos_df.time, unit="s")
+    #     pos_df.drop(
+    #         ["time_update", "time_msc", "time_update_msc", "external_id"],
+    #         axis=1,
+    #         inplace=True,
+    #     )
+    # else:
+    #     pos_df = pd.DataFrame()
+
+    return is_there_active_order
 
 
-def get_orders_df(mt5, symbol=None, ticket=None):
-    if symbol:
-        orders = mt5.orders_get(symbol=symbol)
-    elif ticket:
-        orders = mt5.orders_get(ticket=ticket)
-    else:
-        orders = mt5.orders_get()
-
+def get_orders_df(mt5, ticket):
+    orders = mt5.orders_get(ticket=ticket)
+    print("-------orders--------")
+    print(orders)
+    print("-----------------------")
+    orders = mt5.orders_get(ticket=ticket)
+    is_there_pending_order = False
     if len(orders) > 0:
-        ord_df = pd.DataFrame(list(orders), columns=orders[0]._asdict().keys())
-        ord_df.time_setup = pd.to_datetime(ord_df.time_setup, unit="s")
-        # ord_df.drop(['time_update_msc'], axis=1, inplace=True)
-    else:
-        ord_df = pd.DataFrame()
-
-    return ord_df
+        is_there_pending_order = True
+        # ord_df = pd.DataFrame(list(orders), columns=orders[0]._asdict().keys())
+        # ord_df.time_setup = pd.to_datetime(ord_df.time_setup, unit="s")
+        # # ord_df.drop(['time_update_msc'], axis=1, inplace=True)
+    return is_there_pending_order
 
 
 def current_price(mt5, symbol, ask=True):
