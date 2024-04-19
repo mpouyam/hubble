@@ -1,0 +1,11 @@
+{
+    "login": 80527683,
+    "password": "LbPcVn*5",
+    "server": "MetaQuotes-Demo",
+    "investor": "ObO*A3Kw",
+    "path": "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
+    "symbol": "EURUSD",
+    "max_stored_ticks": 100,
+    "max_subs": 5,
+    "period": 0.5
+}

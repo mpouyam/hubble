@@ -1,0 +1,1 @@
+from .bean import BeanStrategy

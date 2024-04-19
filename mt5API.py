@@ -190,9 +190,9 @@ def get_orders_df(mt5, ticket):
     return is_there_pending_order
 
 
-def current_price(mt5, symbol, ask=True):
+def current_price(mt5, symbol, buyOrSell):
     si = mt5.symbol_info_tick(symbol)
-    if ask:
+    if buyOrSell == "BUY":
         return si.ask
     else:
         return si.bid
