@@ -35,6 +35,7 @@ class BeanStrategy:
         print("Placing First Pend Order ...")
         self.__place_pending_order()
         print("New Box Is Started Successfully !")
+        
         self.__set_lock(False)
 
     def on_tick(self , tick):

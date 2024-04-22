@@ -84,21 +84,29 @@ class Engine:
     
     def start(self):
         self._state = "running"
-        timezone = pytz.timezone("Etc/UTC")
+        symbol = self.config.get_symbol()
+        # timezone = pytz.timezone("Etc/UTC")
         period = self.config.get_period()
-        last_update = datetime.now(timezone) - timedelta(minutes = 1)
+        # last_update = datetime.now(timezone) - timedelta(minutes = 1)
         while True:
-            new_ticks = self.mt5.copy_ticks_range(
-                self.config.get_symbol(),
-                last_update,
-                datetime.now(timezone),
-                self.mt5.COPY_TICKS_ALL
-            )
-            last_update = datetime.now(timezone) - timedelta(seconds=0.1)
-            for tick in new_ticks:
-                result = self.add_to_ticks(tick)
-                if result:
-                    self.tick(result)
+            tick_info = self.mt5.symbol_info_tick(symbol)
+
+            timestamp = tick_info.time
+            bid = tick_info.bid
+            ask = tick_info.ask
+            volume = tick_info.volume
+            tick = (timestamp , bid , ask , volume)
+            # new_ticks = self.mt5.copy_ticks_range(
+            #     self.config.get_symbol(),
+            #     last_update,
+            #     datetime.now(timezone),
+            #     self.mt5.COPY_TICKS_ALL
+            # )
+            # last_update = datetime.now(timezone) - timedelta(seconds=0.1)
+            # for tick in new_ticks:
+            result = self.add_to_ticks(tick)
+            if result:
+                self.tick(result)
         
             # print(new_ticks)
             # print(self.ticks)
