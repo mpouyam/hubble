@@ -38,10 +38,9 @@ class BeanStrategy:
         self.__set_lock(False)
 
     def on_tick(self , tick):
-        print(tick)
         # If Box was locked we should not process any tick
-        # if self.box["locked"]: return
-        # else: self.__state_manager(tick)
+        if self.box["locked"]: return
+        else: self.__state_manager(tick)
 
     def get_symbol(self):
         return self.box["symbol"]
