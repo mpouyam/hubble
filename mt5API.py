@@ -130,8 +130,6 @@ def place_bracket_order(mt5, symbol, vol, buy_sell, sl_price, tp_price, price):
         "price": price,
         "type_time": mt5.ORDER_TIME_GTC,
     }
-    print(request)
-
     result = mt5.order_send(request)
     return result
 
@@ -153,9 +151,6 @@ def close_position(mt5, ticket):
 
 def get_position_df(mt5, ticket=None):
     positionsw = mt5.positions_get()
-    print("-------POSITION--------")
-    print(positionsw)
-    print("-----------------------")
 
     positions = mt5.positions_get(ticket=ticket)
     is_there_active_order = False
@@ -177,9 +172,7 @@ def get_position_df(mt5, ticket=None):
 
 def get_orders_df(mt5, ticket):
     orders = mt5.orders_get(ticket=ticket)
-    print("-------orders--------")
-    print(orders)
-    print("-----------------------")
+
     orders = mt5.orders_get(ticket=ticket)
     is_there_pending_order = False
     if len(orders) > 0:

@@ -1,7 +1,0 @@
-80527683
-LbPcVn*5
-MetaQuotes-Demo
-Login: "80527683"
-Password: "LbPcVn*5"
-Server: "MetaQuotes-Demo"
-Investor: "ObO*A3Kw"
