@@ -8,4 +8,6 @@
         "editor.defaultFormatter": "ms-vsliveshare.vsliveshare"
     },
     "editor.formatOnSave": true,
+    "python.analysis.typeCheckingMode": "off",
+    "editor.defaultFormatter": "KevinRose.vsc-python-indent",
 }
