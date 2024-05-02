@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "hubble"
+version = "0.1.0"
+description = "An engine in order to develop, maintain, manage and execute forex strategies"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+colorlog = "^6.8.2"
+MetaTrader5 = "^5.0.4200"
+pytz = "^2024.1"
+numpy = "^1.26.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

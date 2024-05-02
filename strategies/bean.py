@@ -39,7 +39,7 @@ class BeanStrategy(TickListener):
     lot_pips: Dict[int, float]
     lock: bool
     id: uuid.UUID
-    pre_orders: List[Optional[OrderDetails]]
+    orders_list: List[Optional[OrderDetails]]
     box: Dict[str , int]
     
     # constructor
@@ -83,22 +83,22 @@ class BeanStrategy(TickListener):
 
         # variable TODO: put them in state status
         self.lock = True
-        self.id = uuid.uuid4()
-        self.pre_orders = [None] #TODO: make type for this
+        self.orders_list = [None] #TODO: make type for this
         self.box = {
+            "id":uuid.uuid4(),
             "active_index": 1,
-            "pending_index": 2,
         }
 
 
     # public method
     def run(self) -> None:
         # TODO: check time , if market is close or if near to close dont run 
+        self.logger.debug("Starting New Box ...")
         self.logger.debug("Reseting State ...")
         self.__reset_state()
-        self.logger.debug("Starting New Box ...")
         self.__start()
         self.lock = False
+        self.logger.debug("New Box Started Successfully !")
 
     def on_tick(self , tick: Tuple[float, float]) -> None:
 
@@ -118,31 +118,22 @@ class BeanStrategy(TickListener):
         """
 
         try:
-            self.logger.info("Calculating Pre Orders ...")
-            self.__calculate_pre_orders()
-            
             self.logger.info("Placing First Active Order ...")
             self.__place_active_order()
-            
-            self.logger.info("Placing First Pend Order ...")
-            self.__place_pending_order()
-            
-            self.logger.debug("New Box Started Successfully !")
-        
+                        
         except Exception as e:
             self.logger.error(e)
             self.run()
 
-    def __reset_state(self) ->   None:
+    def __reset_state(self) -> None:
         """
         Reset the trading box state, preparing for a new cycle or initialization.
         """
        
         self.lock = True
-        self.id = uuid.uuid4()
-        self.pre_orders=[None]
+        self.orders_list=[None]
+        self.box["id"] = uuid.uuid4()
         self.box["active_index"] = 1
-        self.box["pending_index"] = 2
         
         self.logger.info("State Reseted !")
 
@@ -152,7 +143,6 @@ class BeanStrategy(TickListener):
         """
 
         self.box["active_index"] += 1
-        self.box["pending_index"] += 1
         self.logger.info("State Updated !")
 
     def __state_manager(self, bid: float, ask: float) -> None:
@@ -163,8 +153,8 @@ class BeanStrategy(TickListener):
             bid (float): The current bid price.
             ask (float): The current ask price.
         """
-       
-        active_order = self.pre_orders[self.box["active_index"]]
+        active_index = self.box["active_index"]
+        active_order = self.orders_list[active_index]
         try:
             box_done = self.__process_order(active_order, bid, ask)
             if box_done : self.run()
@@ -215,13 +205,12 @@ class BeanStrategy(TickListener):
         try:
             if bid >= order["tp"]:
                 self.logger.critical("TP Touched For Buy Position...")
-                self.__close_pending_order()
                 return True
             
             elif bid <= order["sl"]:
                 self.logger.warning("SL Touched For Buy Position...")
                 self.__update_state()
-                self.__place_pending_order()
+                self.__place_active_order()
                 return False
             
         except Exception as e :
@@ -245,13 +234,12 @@ class BeanStrategy(TickListener):
         try:
             if ask <= order["tp"]:
                 self.logger.critical("TP Touched For Sell Position...")
-                self.__close_pending_order()
                 return True
 
             elif ask >= order["sl"]:
                 self.logger.warning("SL Touched For Sell Position...")
                 self.__update_state()
-                self.__place_pending_order()
+                self.__place_active_order()
                 return False
 
         except Exception as e: 
@@ -262,29 +250,28 @@ class BeanStrategy(TickListener):
 
     
     #  Calculate Orders
-    def __calculate_pre_orders(self) ->   None :
+    def __calculate_order(self , i) -> None :
         """
-        Calculate all preliminary orders based on the strategy parameters and update the pre_orders list.
+        Calculate all preliminary orders based on the strategy parameters and update the orders_list list.
         """
 
-        for i in range(1, self.max_order + 1):
-            buy_or_sell = self.__calculate_buy_or_sell(i)
-            volume = self.__calculate_vol(i)
-            price, stop_loss, take_profit = self.__calculate_order_details(i, buy_or_sell)
+        buy_or_sell = self.__calculate_buy_or_sell(i)
+        volume = self.__calculate_vol(i)
+        price, stop_loss, take_profit = self.__calculate_order_details(i, buy_or_sell)
 
-            request: OrderDetails = {
-                "index": i,
-                "buy_or_sell": buy_or_sell,
-                "ticket": None,
-                "symbol": self.symbol,
-                "volume": volume,
-                "sl": stop_loss,
-                "tp": take_profit,
-                "price": price,
-            }
-            self.pre_orders.append(request)
-            print(request)
-        self.logger.info("Pre Orders Calculated !")
+        request: OrderDetails = {
+            "index": i,
+            "buy_or_sell": buy_or_sell,
+            "ticket": None,
+            "symbol": self.symbol,
+            "volume": volume,
+            "sl": stop_loss,
+            "tp": take_profit,
+            "price": price,
+        }
+        self.orders_list.insert(i,request)
+        print(request)
+        self.logger.info("Order Calculated !")
  
     def __calculate_order_details(self, index: int, buy_or_sell: str) -> Tuple[float, float, float]:
         """
@@ -297,21 +284,8 @@ class BeanStrategy(TickListener):
         Returns:
             Tuple[float, float, float]: A tuple containing the price, stop loss, and take profit values.
         """
-
-        if index == 1:
-            price = self.__calculate_current_price(buy_or_sell)
-            tp, sl = self.__calculate_tp_sl(price, buy_or_sell)
-        elif index == 2:
-            price = self.pre_orders[1]["sl"]
-            tp, sl = self.__calculate_tp_sl(price, buy_or_sell)
-        else: 
-            order = self.pre_orders[1 if index % 2 !=  0 else 2]
-            price = order["price"]
-            sl = order["sl"]
-            if index > 12:
-                tp = self.__calculate_tp_sl(price, buy_or_sell, index)[0]
-            else:
-                tp = order["tp"]
+        price = self.__calculate_current_price(buy_or_sell)
+        tp, sl = self.__calculate_tp_sl(price, buy_or_sell, index)
 
         return price, sl, tp
     
@@ -368,7 +342,7 @@ class BeanStrategy(TickListener):
 
         pip_uint = self.provider.get_symbol_pip_unit(self.symbol)
 
-        if index is None: tp_pip = round(pip_uint * 10 ,5) 
+        if index < 13: tp_pip = round(pip_uint * 10 ,5) 
         else: tp_pip = round(pip_uint * self.__calculate_tp(index) ,5) 
         sl_pip = pip_uint * 2
         
@@ -428,8 +402,9 @@ class BeanStrategy(TickListener):
 
         for attempt in range(self.try_count):
             active_index = self.box["active_index"]
-            active_order = self.pre_orders[active_index]
-
+            self.__calculate_order(active_index)
+            active_order = self.orders_list[active_index]
+            
             symbol = active_order["symbol"]
             volume = active_order["volume"]
             buy_or_sell = active_order["buy_or_sell"]
@@ -454,61 +429,3 @@ class BeanStrategy(TickListener):
             "code":BoxErrorStatus.ACTIVE_ORDER_ERROR,
             "details": result['comment'] 
         }) 
-
-    def __place_pending_order(self) ->   None:
-        """
-        Attempt to place a pending order, ensuring the operation is locked to prevent concurrent execution.
-        """
-
-        for attempt in range(self.try_count):
-            pending_index = self.box["pending_index"]
-            pending_order = self.pre_orders[pending_index]
-            
-            symbol = pending_order["symbol"]
-            volume = pending_order["volume"]
-            buy_or_sell = pending_order["buy_or_sell"]
-            sl = pending_order["sl"]
-            tp = pending_order["tp"]
-            price = pending_order["price"]
-
-            result = self.provider.place_pend_order(symbol, volume, buy_or_sell, sl, tp, price)
-
-            if result["done"]:
-                self.logger.info("Pending order placed successfully !")
-                pending_order["ticket"] = result["ticket"]
-                return
-
-            else:
-                self.logger.error(f"Attempt {attempt+1}: Failed to place pending order: {result['comment']}")
-                self.logger.debug("trying one more time")
-                time.sleep(0.3)
-        
-        # Restart the entire process if unable to place the order after all attempts
-        self.logger.error("Maximum retries reached for placing pending order. Restarting Box...")
-        raise Exception({
-            "code":BoxErrorStatus.PENDING_ORDER_ERROR,
-            "details": result['comment']
-        })
-
-    def __close_pending_order(self)  -> None:
-        """
-        Attempt to close the pending order, ensuring the operation is locked to prevent concurrent execution.
-        """
-
-        for attempt in range(self.try_count):
-            ticket = self.pre_orders[self.box["pending_index"]]["ticket"]
-            result = self.provider.close_position(ticket)
-            if result["done"]:
-                self.logger.info("Pending order closed successfully !")
-                return
-            else:
-                self.logger.error(f"Attempt {attempt+1}: Failed to close pending order: {result['comment']}")
-                self.logger.debug("trying one more time")
-                time.sleep(0.3)
-        
-        # Restart the entire process if unable to place the order after all attempts
-        self.logger.error("Maximum retries reached for closing pending order. Restarting Box...")
-        raise Exception({
-            "code": BoxErrorStatus.CLOSE_ORDER_ERROR,
-            "details": result['comment']
-        })
