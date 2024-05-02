@@ -30,7 +30,6 @@ class BeanStrategy(TickListener):
     symbol: str
     provider: type[Platform]
     first_order_signal: str
-    max_order: int
     logger: Any
     try_count: int
     base_lot: float
@@ -43,43 +42,32 @@ class BeanStrategy(TickListener):
     box: Dict[str , int]
     
     # constructor
-    def __init__(self, provider, logger:Any ,symbol:str , max_order=22 , first_order_signal="BUY" , try_count=9) -> None:
+    def __init__(self, provider, logger:Any ,symbol:str , first_order_signal="BUY" , try_count=9) -> None:
         
         # Constatnt TODO: make their name with underscore
         self.symbol = symbol
         self.provider = provider
         self.first_order_signal = first_order_signal
-        self.max_order = max_order
         self.logger = logger
         self.try_count = try_count
         
         # Define constants for volume calculation
         self.base_lot = 0.1
         self.growth_factor = 1.3  # Multiplier for exponential volume growth
-        self.base_index = 3  # Index from which exponential growth starts
-        self.lot_pips = {
-            13: 8.6,
-            14: 8.6,
-            15: 8.6,
-            16: 8.6,
-            17: 8.7,
-            18: 8.7,
-            19: 8.8,
-            20: 8.8,
-            21: 8.7,
-            22: 8.7
+        self.base_index = 11  # Index from which exponential growth starts
+        self.static_vol = {
+            1:0.001,
+            2:0.001,
+            3:0.001,
+            4:0.002,
+            5:0.002,
+            6:0.003,
+            7:0.004,
+            8:0.005,
+            9:0.006,
+            10:0.008,
+            11:0.01
         }
-
-        '''
-        if index == 13 : lot_pip = 8.6
-        elif index == 14 : lot_pip = 7.3
-        elif index == 15 : lot_pip = 7.8
-        elif index == 16: lot_pip = 7.5
-        elif index == 17 : lot_pip = 7.7
-        elif index == 18 : lot_pip = 8.1
-        elif index == 19 : lot_pip = 8.9
-        elif index == 20 : lot_pip = 8.7
-        '''
 
         # variable TODO: put them in state status
         self.lock = True
@@ -320,8 +308,9 @@ class BeanStrategy(TickListener):
             float: The calculated volume based on the index.
         """
 
-        if index < 4:
-            return self.base_lot
+        if index in self.static_vol:
+            return self.static_vol[index]
+
         else:
             # Calculate the exponent based on how far the index is from the base index
             n = index - self.base_index
@@ -342,8 +331,7 @@ class BeanStrategy(TickListener):
 
         pip_uint = self.provider.get_symbol_pip_unit(self.symbol)
 
-        if index < 13: tp_pip = round(pip_uint * 10 ,5) 
-        else: tp_pip = round(pip_uint * self.__calculate_tp(index) ,5) 
+        tp_pip = pip_uint * 10 
         sl_pip = pip_uint * 2
         
         if buy_or_sell == "SELL":
@@ -354,7 +342,7 @@ class BeanStrategy(TickListener):
             tp_price = cp + tp_pip
             sl_price = cp - sl_pip
 
-        final_tp_price = round(tp_price , 5)
+        final_tp_price = round(tp_price,5)
         final_sl_price = round(sl_price,5)
 
         return (final_tp_price,final_sl_price )
@@ -373,25 +361,6 @@ class BeanStrategy(TickListener):
         
         return round(current_price,5)
     
-    def __calculate_tp(self, index: int) -> float:
-        """
-        Fetch the predefined take profit pip value based on the order index.
-
-        Parameters:
-            index (int): The index of the order.
-
-        Returns:
-            float: The take profit pip value.
-
-        Raises:
-            ValueError: If no predefined value exists for the given index.
-        """
-        if index in self.lot_pips:
-            return self.lot_pips[index]
-        else:
-            self.logger.error(f"No TP data for index: {index}")
-            raise ValueError(f"No take profit data available for index {index}")
-
 
     # Oder actions
     def __place_active_order(self)  -> None:
