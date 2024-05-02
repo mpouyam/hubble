@@ -283,7 +283,7 @@ class BeanStrategy(TickListener):
                 "price": price,
             }
             self.pre_orders.append(request)
-
+            print(request)
         self.logger.info("Pre Orders Calculated !")
  
     def __calculate_order_details(self, index: int, buy_or_sell: str) -> Tuple[float, float, float]:
@@ -395,7 +395,9 @@ class BeanStrategy(TickListener):
         Returns:
             float: The current market price for the specified type.
         """
-        return self.provider.current_price( self.symbol, buy_or_sell)
+        current_price = self.provider.current_price( self.symbol, buy_or_sell)
+        
+        return round(current_price,5)
     
     def __calculate_tp(self, index: int) -> float:
         """
