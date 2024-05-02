@@ -56,17 +56,17 @@ class BeanStrategy(TickListener):
         self.growth_factor = 1.3  # Multiplier for exponential volume growth
         self.base_index = 11  # Index from which exponential growth starts
         self.static_vol = {
-            1:0.001,
-            2:0.001,
-            3:0.001,
-            4:0.002,
-            5:0.002,
-            6:0.003,
-            7:0.004,
-            8:0.005,
-            9:0.006,
-            10:0.008,
-            11:0.01
+            1:0.01,
+            2:0.01,
+            3:0.01,
+            4:0.02,
+            5:0.02,
+            6:0.03,
+            7:0.04,
+            8:0.05,
+            9:0.06,
+            10:0.08,
+            11:0.1
         }
 
         # variable TODO: put them in state status
