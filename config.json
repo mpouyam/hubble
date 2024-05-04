@@ -4,7 +4,7 @@
     "server": "MetaQuotes-Demo",
     "investor": "4cK*CjKg",
     "path": "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
-    "symbol": "GBPUSD",
+    "symbol": "EURUSD",
     "max_stored_ticks": 1000,
     "max_subs": 5,
     "period": 1

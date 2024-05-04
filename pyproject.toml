@@ -2,7 +2,7 @@
 name = "hubble"
 version = "0.1.0"
 description = "An engine in order to develop, maintain, manage and execute forex strategies"
-authors = ["Your Name <you@example.com>"]
+authors = ["AmirHossein amiradvari@gmail.com"]
 readme = "README.md"
 package-mode = false
 

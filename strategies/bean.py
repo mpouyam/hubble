@@ -1,6 +1,8 @@
 import uuid
 from enum import IntEnum
 import time
+import datetime
+import pytz
 from publisher import TickListener
 from trading_platform import Platform
 from typing import List , Optional, TypedDict , Dict, Tuple, Any
@@ -52,6 +54,9 @@ class BeanStrategy(TickListener):
         self.try_count = try_count
         
         # Define constants for volume calculation
+        self.pip_uint = provider.get_symbol_pip_unit(self.symbol)
+        self.tp_limit = 10
+        self.sl_limit = 2
         self.base_lot = 0.1
         self.growth_factor = 1.3  # Multiplier for exponential volume growth
         self.base_index = 11  # Index from which exponential growth starts
@@ -75,21 +80,17 @@ class BeanStrategy(TickListener):
         self.box = {
             "id":uuid.uuid4(),
             "active_index": 1,
+            "started_at": datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(pytz.timezone('Asia/Tehran')).strftime('%Y-%m-%d %H-%M-%S')
         }
 
 
     # public method
-    def run(self) -> None:
-        # TODO: check time , if market is close or if near to close dont run 
-        self.logger.debug("Starting New Box ...")
-        self.logger.debug("Reseting State ...")
-        self.__reset_state()
-        self.__start()
+    def start(self) -> None:
         self.lock = False
-        self.logger.debug("New Box Started Successfully !")
+        self.logger.debug(f"New Box Started Successfully with ID : {self.box["id"]}!")
 
     def on_tick(self , tick: Tuple[float, float]) -> None:
-
+        # check state
         if self.lock : return
 
         self.__state_manager(bid = tick[1] , ask = tick[2])    
@@ -99,40 +100,6 @@ class BeanStrategy(TickListener):
 
 
     # Manage state    
-    def __start(self) -> None:
-        """
-        Start the trading box by calculating pre-orders and placing initial orders.
-        Handles exceptions and logs the progress at each step.
-        """
-
-        try:
-            self.logger.info("Placing First Active Order ...")
-            self.__place_active_order()
-                        
-        except Exception as e:
-            self.logger.error(e)
-            self.run()
-
-    def __reset_state(self) -> None:
-        """
-        Reset the trading box state, preparing for a new cycle or initialization.
-        """
-       
-        self.lock = True
-        self.orders_list=[None]
-        self.box["id"] = uuid.uuid4()
-        self.box["active_index"] = 1
-        
-        self.logger.info("State Reseted !")
-
-    def __update_state(self)-> None:
-        """
-        Update the indices of the active and pending orders in the trading box.
-        """
-
-        self.box["active_index"] += 1
-        self.logger.info("State Updated !")
-
     def __state_manager(self, bid: float, ask: float) -> None:
         """
         Manage the state of orders based on current market prices.
@@ -142,6 +109,7 @@ class BeanStrategy(TickListener):
             ask (float): The current ask price.
         """
         active_index = self.box["active_index"]
+        if len(self.orders_list) == active_index - 1:
         active_order = self.orders_list[active_index]
         try:
             box_done = self.__process_order(active_order, bid, ask)
@@ -151,6 +119,15 @@ class BeanStrategy(TickListener):
         except Exception as e:
             self.logger.error(e)
             self.run()
+
+    def __update_state(self)-> None:
+        """
+        Update the indices of the active and pending orders in the trading box.
+        """
+
+        self.box["active_index"] += 1
+        self.logger.info("State Updated !")
+
 
 
     # Process Orders
@@ -198,7 +175,7 @@ class BeanStrategy(TickListener):
             elif bid <= order["sl"]:
                 self.logger.warning("SL Touched For Buy Position...")
                 self.__update_state()
-                self.__place_active_order()
+                self.__place_active_order(bid)
                 return False
             
         except Exception as e :
@@ -227,7 +204,7 @@ class BeanStrategy(TickListener):
             elif ask >= order["sl"]:
                 self.logger.warning("SL Touched For Sell Position...")
                 self.__update_state()
-                self.__place_active_order()
+                self.__place_active_order(ask)
                 return False
 
         except Exception as e: 
@@ -238,17 +215,17 @@ class BeanStrategy(TickListener):
 
     
     #  Calculate Orders
-    def __calculate_order(self , i) -> None :
+    def __calculate_order(self , price : float , index:int ) -> None :
         """
         Calculate all preliminary orders based on the strategy parameters and update the orders_list list.
         """
 
-        buy_or_sell = self.__calculate_buy_or_sell(i)
-        volume = self.__calculate_vol(i)
-        price, stop_loss, take_profit = self.__calculate_order_details(i, buy_or_sell)
+        buy_or_sell = self.__calculate_buy_or_sell(index)
+        volume = self.__calculate_vol(index)
+        stop_loss, take_profit = self.__calculate_tp_sl(price, buy_or_sell, index)
 
         request: OrderDetails = {
-            "index": i,
+            "index": index,
             "buy_or_sell": buy_or_sell,
             "ticket": None,
             "symbol": self.symbol,
@@ -257,26 +234,10 @@ class BeanStrategy(TickListener):
             "tp": take_profit,
             "price": price,
         }
-        self.orders_list.insert(i,request)
+        self.orders_list.insert(index,request)
         print(request)
         self.logger.info("Order Calculated !")
  
-    def __calculate_order_details(self, index: int, buy_or_sell: str) -> Tuple[float, float, float]:
-        """
-        Calculate the price, stop loss, and take profit for a given order based on its index and type.
-
-        Parameters:
-            index (int): The index of the order.
-            buy_or_sell (str): Indicates whether the order is a 'BUY' or 'SELL'.
-
-        Returns:
-            Tuple[float, float, float]: A tuple containing the price, stop loss, and take profit values.
-        """
-        price = self.__calculate_current_price(buy_or_sell)
-        tp, sl = self.__calculate_tp_sl(price, buy_or_sell, index)
-
-        return price, sl, tp
-    
     def __calculate_buy_or_sell(self , index: int) -> str:
         """
         Determine whether to buy or sell based on the order index and the initial trading signal.
@@ -316,7 +277,7 @@ class BeanStrategy(TickListener):
             n = index - self.base_index
             return round((pow(self.growth_factor, n) * self.base_lot), 2)
 
-    def __calculate_tp_sl(self, cp: float, buy_or_sell: str, index: Optional[int] = None) -> Tuple[float, float]:
+    def __calculate_tp_sl(self, cp: float, buy_or_sell: str) -> Tuple[float, float]:
         """
         Calculate the take-profit and stop-loss prices.
 
@@ -329,10 +290,9 @@ class BeanStrategy(TickListener):
             Tuple[float, float]: The calculated take-profit and stop-loss prices.
         """
 
-        pip_uint = self.provider.get_symbol_pip_unit(self.symbol)
 
-        tp_pip = pip_uint * 10 
-        sl_pip = pip_uint * 2
+        tp_pip = self.pip_uint * self.tp_limit 
+        sl_pip = self.pip_uint * self.sl_limit
         
         if buy_or_sell == "SELL":
             tp_price =cp - tp_pip
@@ -347,23 +307,8 @@ class BeanStrategy(TickListener):
 
         return (final_tp_price,final_sl_price )
 
-    def __calculate_current_price(self, buy_or_sell: str) -> float:
-        """
-        Fetch the current price from the trading platform.
-
-        Parameters:
-            buy_or_sell (str): 'BUY' or 'SELL' to possibly influence how the price is fetched.
-
-        Returns:
-            float: The current market price for the specified type.
-        """
-        current_price = self.provider.current_price( self.symbol, buy_or_sell)
-        
-        return round(current_price,5)
-    
-
     # Oder actions
-    def __place_active_order(self)  -> None:
+    def __place_active_order(self , price:float)  -> None:
         """
         Attempt to place the active order up to a maximum number of tries defined by try_count.
         Logs the outcome of each attempt and handles failures.
@@ -371,7 +316,7 @@ class BeanStrategy(TickListener):
 
         for attempt in range(self.try_count):
             active_index = self.box["active_index"]
-            self.__calculate_order(active_index)
+            self.__calculate_order(price , active_index)
             active_order = self.orders_list[active_index]
             
             symbol = active_order["symbol"]
