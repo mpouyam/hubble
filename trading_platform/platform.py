@@ -64,6 +64,7 @@ class Platform:
     
     def initialize(self, platform_config: PlatformConfig):
         self.platform_config = platform_config
+        print(self.platform_config)
         if mt5.initialize(
             path= platform_config.get_path(),
             login= platform_config.get_login(),

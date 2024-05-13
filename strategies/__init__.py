@@ -1,1 +1,1 @@
-from .bean import BeanStrategy
+from .box_manager import BoxManager

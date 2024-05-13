@@ -12,6 +12,10 @@ colorlog = "^6.8.2"
 MetaTrader5 = "^5.0.4200"
 pytz = "^2024.1"
 numpy = "^1.26.4"
+fastapi = "^0.111.0"
+pydantic = "^2.7.1"
+python-dotenv = "^1.0.1"
+uvicorn = "^0.29.0"
 
 
 [build-system]
