@@ -21,14 +21,13 @@ class Status(StrEnum):
 
 class Trader(BoxManager):
     def __init__(self , provider , logger , repository:BoxRepositoryInterface , symbol:str) -> None:
-        super().__init__()
 
         self.logger = logger
         self.repository = repository
         self.provider = provider
         self.symbol = symbol
-        self.staus = Status.OFF
-        self.default_working_hours = (9, 8) # Default: 9 AM to 8 PM
+        self.status = Status.OFF
+        self.default_working_hours = (9, 21)
         self.working_hours = {
             # 0: (9, 17),  # Monday: 9 AM to 5 PM
             # 1: (9, 17),  # Tuesday: 9 AM to 5 PM
@@ -38,6 +37,7 @@ class Trader(BoxManager):
             # 5: (9, 17),  # Saturday: 9 AM to 5 PM
             # 6: (9, 17),  # Sunday: 9 AM to 5 PM
         }
+        super().__init__()
 
     # public method
     def on_tick(self, tick:Tuple[int , float , float , float]) -> None:
@@ -57,7 +57,8 @@ class Trader(BoxManager):
             return
         
         else:
-            self._state_manager(bid=tick[1], ask=tick[2])
+            self._box_state_manager(bid=tick[1], ask=tick[2])
+            return
 
     def get_symbol(self) -> str:
         return self.symbol
@@ -70,6 +71,8 @@ class Trader(BoxManager):
         else:
             if signal == Signal.ON:
                 self.logger.warning("Received ON signal.")
+                self._reset_order_state()
+                self._reset_box_state()
                 self._set_status(Status.ON)
                 return
         
@@ -118,8 +121,8 @@ class Trader(BoxManager):
         self.status = status
     
     def _save_data(self) -> None:
-        self.box["state"] = self.state
-        self.box["ended_at"] = now_time_iran()
-        self.box["orders"] = self._get_orders_list()
-        self.repository.save_box_data(self.box)
-
+        if self.state != BoxState.INIT:
+            self.box["state"] = self.state
+            self.box["ended_at"] = now_time_iran()
+            self.box["orders"] = self._get_orders_list()
+            self.repository.save_box_data(self.box)

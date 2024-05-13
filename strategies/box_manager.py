@@ -1,12 +1,9 @@
 import uuid
 from enum import StrEnum
 from typing import Any, Dict
-from abc import abstractmethod
 
-from trading_platform import Platform
 from utils import now_time_iran
 from .order_manager import OrderManager , OrderStatus, OrderState
-from .trader import Status
 
 class BoxErrorStatus(StrEnum):
     STATE_MANAGER_ERROR = "STATE_MANAGER_ERROR"
@@ -22,14 +19,14 @@ class BoxManager(OrderManager):
 
     # constructor
     def __init__(self) -> None:
-        super().__init__()
         self.state = BoxState.INIT
         self.box = self.__initialize_box()
+        super().__init__()
 
     def __initialize_box(self) -> Dict[str, Any]:
         return {
             "id": uuid.uuid4(),
-            "symbol" : "GBPUSD",
+            "symbol" : self.symbol,
             "orders": None,
             "active_index": 1,
             "started_at": now_time_iran(),
@@ -38,11 +35,12 @@ class BoxManager(OrderManager):
 
 
     # Manage state
-    def _state_manager(self, bid: float, ask: float) -> None:
+    def _box_state_manager(self, bid: float, ask: float) -> None:
         box_state = self._get_box_state()
         active_order_number = self.box["active_index"]
         
         try:
+
             if box_state == BoxState.INIT:
                 active_order = self._place_order(active_order_number)
                 if active_order["state"] != OrderState.ACTIVE: 
@@ -52,17 +50,15 @@ class BoxManager(OrderManager):
                     })
                 self._set_box_state(BoxState.RUNNING)
 
-
             elif box_state == BoxState.RUNNING:
                 order = self._process_order(bid, ask)
                 order_status = order["status"]
 
                 if order_status == OrderStatus.TP :
+                    self._set_status("OFF")
                     self._set_box_state(BoxState.FINISHED)
                     self._save_data()
-                    self._reset_order_state()
-                    self._reset_box_state()
-                    self._set_status(Status.OFF)
+
 
 
                 elif order_status == OrderStatus.SL:
@@ -77,27 +73,13 @@ class BoxManager(OrderManager):
 
                     
                 elif order_status == OrderStatus.NOTHING:
-                        return
+                    return
 
-            elif box_state == BoxState.FINISHED:
-                    self._save_data()
-                    self._reset_order_state()
-                    self._reset_box_state()
-            
-            elif box_state == BoxState.STOPPED: 
-                    self._save_data()
-                    self._reset_order_state()
-                    self._reset_box_state()
-
-        except Exception as e:
-            print("++++++++++++++++++++++")
-            print(e)
-
+        except Exception:
+            self._set_status("OFF")
             self._set_box_state(BoxState.STOPPED)
             self._save_data()
-            self._reset_order_state()
-            self._reset_box_state()
-    
+
     def _reset_box_state(self):
         self._set_box_state(BoxState.INIT)
         self.box = self.__initialize_box()

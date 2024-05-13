@@ -50,8 +50,8 @@ class OrderManager(TickListener):
             "first_order_signal": "BUY",
             "pip_unit": self.provider.get_symbol_pip_unit(self.symbol),
             "try_count": 9,
-            "tp_limit": 5,
-            "sl_limit": 1,
+            "tp_limit": 10,
+            "sl_limit": 2,
             "base_lot": 0.1,
             "growth_factor": 1.3,
             "base_index": 11,
@@ -123,7 +123,7 @@ class OrderManager(TickListener):
 
         for attempt in range(self.config["try_count"]):
 
-            result = self.provider.close_position(active_order_ticket)
+            result = self.provider.close_position(active_order_ticket , self.symbol)
             if result["done"]:
                 self.active_order["state"] = OrderState.CLOSED
                 self.active_order["ended_at"] = now_time_iran()
@@ -132,7 +132,7 @@ class OrderManager(TickListener):
                 return self.active_order
 
             else:
-                self.logger.error(f"Attempt {attempt+1}: Failed To Place Active Order: {result['comment']}")
+                self.logger.error(f"Attempt {attempt+1}: Failed To Close Active Order: {result['comment']}")
                 self.logger.debug("Trying One More Time")
                 time.sleep(0.3)
                 self.logger.error("Maximum Retries Reached For Closing Active Order.")

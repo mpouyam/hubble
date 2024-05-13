@@ -81,13 +81,13 @@ class Platform:
         tick_info = mt5.symbol_info_tick(symbol)
         return (tick_info.time , tick_info.bid , tick_info.ask , tick_info.volume)
     
-    def close_position(self, ticket):
-        req = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket}
-        result = mt5.order_send(req)
-        if result.retcode == mt5.TRADE_RETCODE_DONE:
+    def close_position(self, ticket , symbol):
+        result = mt5.Close(symbol,ticket=ticket)
+
+        if result:
             return {
                 "done" :True,
-                "ticket": result.order,
+                "ticket": ticket,
                 "comment": "Done"
             }
         else:
@@ -109,7 +109,7 @@ class Platform:
         si = mt5.symbol_info(symbol)
         return si.point * 10
 
-    def place_bracket_order(self, symbol, vol, buy_sell, sl_price, tp_price, price):        
+    def place_bracket_order(self, symbol, vol, buy_sell, sl_price, tp_price, price):
         """
         Place a bracket order with MetaTrader 5.
 
