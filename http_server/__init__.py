@@ -1,1 +1,1 @@
-from .server import HTTPServer
+from .server import HubbleHttpController

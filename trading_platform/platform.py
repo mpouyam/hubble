@@ -64,9 +64,8 @@ class Platform:
     
     def initialize(self, platform_config: PlatformConfig):
         self.platform_config = platform_config
-        print(self.platform_config)
         if mt5.initialize(
-            path= platform_config.get_path(),
+            path= "C:\\Program Files\\MetaTrader 5\\terminal64.exe", #platform_config.get_path(),
             login= platform_config.get_login(),
             password= platform_config.get_password(),
             server= platform_config.get_server(),

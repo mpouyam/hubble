@@ -3,23 +3,23 @@ import time
 from typing import Any, Dict, Tuple , Optional , TypedDict
 from trading_platform import Platform
 from utils import now_time_iran
-# from .box_manager import BoxErrorStatus
 import uuid
 import json
+from abc import abstractmethod
+from publisher import TickListener
+
 
 class OrderStatus(StrEnum):
     SL = "SL"
     TP = "TP"
     NOTHING = "NOTHING"
 
-
 class OrderState(StrEnum):
     INIT = "INIT"
     ACTIVE = "ACTIVE"
     DONE =  "DONE"
+    CLOSED = "CLOSED"
     FAILED = "FAILED"
-
-
 
 class OrderDetails(TypedDict):
     index: int
@@ -30,31 +30,28 @@ class OrderDetails(TypedDict):
     sl: float
     tp: float
     price: float
+    spread: float
     state: OrderState
     status: OrderStatus
     started_at: str
     ended_at: str
+    error: Optional[str]
 
 
-
-
-
-
-class OrderManager:
-    def __init__(self, provider: type[Platform], logger: Any , symbol:str):
-        self.provider = provider
-        self.config = self.__initialize_config(symbol)
-        self.logger = logger
+class OrderManager(TickListener):
+    def __init__(self):
+        self.config = self.__initialize_config()
+        self.orders:list[OrderDetails] = []
         self.active_order: OrderDetails = None
 
-    def __initialize_config(self , symbol) -> Dict[str, Any]:
+    def __initialize_config(self) -> Dict[str, Any]:
         return {
-            "symbol": symbol,
+            "symbol": self.symbol,
             "first_order_signal": "BUY",
-            "pip_unit": self.provider.get_symbol_pip_unit(symbol),
+            "pip_unit": self.provider.get_symbol_pip_unit(self.symbol),
             "try_count": 9,
-            "tp_limit": 10,
-            "sl_limit": 2,
+            "tp_limit": 5,
+            "sl_limit": 1,
             "base_lot": 0.1,
             "growth_factor": 1.3,
             "base_index": 11,
@@ -78,9 +75,14 @@ class OrderManager:
                 # 1: 10, its ineteger like sl_limit 
             },
         }
-
+    
+    def _reset_order_state(self):
+        self.orders = []
+        self.active_order = None
+    
+    
     # Oder actions
-    def place_order(self , order_number) -> OrderDetails:
+    def _place_order(self , order_number: int) -> OrderDetails:
 
         for attempt in range(self.config["try_count"]):
             self.__calculate_order(order_number)
@@ -108,25 +110,64 @@ class OrderManager:
         # Restart the entire process if unable to place the order after all attempts
         self.logger.error("Maximum retries reached for placing active order.")
         self.active_order["state"] = OrderState.FAILED
-        raise Exception({
-            # "code":BoxErrorStatus.PLACE_ORDER_ERROR,
-            "order": self.active_order,
-            "details": result['comment'] 
-        }) 
+        self.active_order["error"] = result["comment"]
+        self.__add_to_orders(self.active_order)
+        return self.active_order
+    
+    def _close_order(self) -> None:
+        if self.active_order is None:
+            return
+
+        active_order_ticket = self.active_order["ticket"]
+
+
+        for attempt in range(self.config["try_count"]):
+
+            result = self.provider.close_position(active_order_ticket)
+            if result["done"]:
+                self.active_order["state"] = OrderState.CLOSED
+                self.active_order["ended_at"] = now_time_iran()
+
+                self.__add_to_orders(self.active_order)
+                return self.active_order
+
+            else:
+                self.logger.error(f"Attempt {attempt+1}: Failed To Place Active Order: {result['comment']}")
+                self.logger.debug("Trying One More Time")
+                time.sleep(0.3)
+                self.logger.error("Maximum Retries Reached For Closing Active Order.")
+        
+        self.active_order["state"] = OrderState.FAILED
+        self.active_order["error"] = result["comment"]
+        self.__add_to_orders(self.active_order)
+        
+        return self.active_order
+     
+    def _get_orders_list(self) -> list[OrderDetails]:
+        return self.orders
+
+    def __add_to_orders(self , order:OrderDetails , index=None) -> None :
+        if index is not None :
+            self.orders.insert(index , order)
+
+        else:
+            self.orders.append(order)    
 
     # Process Orders
-    def process_order(self, bid: float, ask: float) -> OrderDetails:
+    def _process_order(self, bid: float, ask: float) -> OrderDetails:
         order_status = self.__process_buy_order(bid) if self.active_order["buy_or_sell"] == "BUY" else self.__process_sell_order(ask)
 
         if order_status != OrderStatus.NOTHING: 
             self.active_order["state"] = OrderState.DONE
             self.active_order["status"] = order_status
             self.active_order["ended_at"] = now_time_iran()
-
+            self.active_order["spread"] = self.__calculate_spread(bid , ask)
+            self.__add_to_orders(self.active_order)
+        
         return self.active_order
 
     def __process_buy_order(self, bid: float) -> OrderStatus:
-        
+
         if bid >= self.active_order["tp"]:
             self.logger.critical("TP Touched For Buy Position...")
             return OrderStatus.TP
@@ -134,6 +175,7 @@ class OrderManager:
         elif bid <= self.active_order["sl"]:
             self.logger.warning("SL Touched For Buy Position...")
             return OrderStatus.SL
+        
         else:
             return OrderStatus.NOTHING
 
@@ -145,11 +187,12 @@ class OrderManager:
         elif ask >= self.active_order["sl"]:
             self.logger.warning("SL Touched For Sell Position...")
             return OrderStatus.SL
+        
         else:
             return OrderStatus.NOTHING
 
  
-    #  Calculate Orders
+    #  Calculate Orders    
     def __calculate_order(self , order_number) -> None:
 
         buy_or_sell = self.__calculate_buy_or_sell(order_number)
@@ -168,8 +211,10 @@ class OrderManager:
             "price": current_price,
             "state": OrderState.INIT,
             "status": OrderStatus.NOTHING,
+            "spread": None,
             "started_at": now_time_iran(),
             "ended_at": None,
+            "error": None
         }
 
         my_dict_str = {str(key): str(value) if isinstance(value, (Enum, uuid.UUID)) else value for key, value in self.active_order.items()}
@@ -235,4 +280,6 @@ class OrderManager:
         current_price = self.provider.current_price(self.config["symbol"], buy_or_sell)
         
         return round(current_price,5)
-    
+
+    def __calculate_spread(self , bid , ask) -> float : 
+        return ask - bid
