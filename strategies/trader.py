@@ -26,7 +26,7 @@ class Trader(BoxManager):
         self.repository = repository
         self.provider = provider
         self.symbol = symbol
-        self.status = Status.OFF
+        self.status = Status.ON
         self.default_working_hours = (9, 21)
         self.working_hours = {
             # 0: (9, 17),  # Monday: 9 AM to 5 PM
@@ -53,7 +53,7 @@ class Trader(BoxManager):
             return
                 
         elif status == Status.ON and box_state != BoxState.RUNNING and not self.__is_working_hours() :
-            self.logger.warning("Box Is ON Mode but not within working hours")
+            self.logger.warning("Box Is in ON Mode but not within working hours")
             return
         
         else:
@@ -99,7 +99,7 @@ class Trader(BoxManager):
 
     # private method
     def __is_working_hours(self) -> bool:
-
+        return True
         ir_timezone = pytz.timezone('Asia/Tehran')  # Use Tehran timezone for Iran
         # Get the current time in Iranian timezone
         current_time = datetime.now(ir_timezone)
@@ -122,7 +122,9 @@ class Trader(BoxManager):
     
     def _save_data(self) -> None:
         if self.state != BoxState.INIT:
+            account = self.provider.account_details()
             self.box["state"] = self.state
             self.box["ended_at"] = now_time_iran()
             self.box["orders"] = self._get_orders_list()
+            self.box["profit"] = account["balance"] - self.box["profit"] 
             self.repository.save_box_data(self.box)

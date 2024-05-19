@@ -40,11 +40,11 @@ class OrderDetails(TypedDict):
 
 class OrderManager(TickListener):
     def __init__(self):
-        self.config = self.__initialize_config()
+        self.config = self._initialize_order_config()
         self.orders:list[OrderDetails] = []
         self.active_order: OrderDetails = None
 
-    def __initialize_config(self) -> Dict[str, Any]:
+    def _initialize_order_config(self) -> Dict[str, Any]:
         return {
             "symbol": self.symbol,
             "first_order_signal": "BUY",
@@ -82,10 +82,20 @@ class OrderManager(TickListener):
     
     
     # Oder actions
-    def _place_order(self , order_number: int) -> OrderDetails:
-
+    def _place_order(self , order_number: int ,bid:float , ask :float) -> OrderDetails:
         for attempt in range(self.config["try_count"]):
-            self.__calculate_order(order_number)
+            print("-----------------------")
+            print(attempt)
+            print("-----------------------")
+
+            if attempt == 0 :
+                self._calculate_order(order_number , bid , ask)
+            else:
+                self._calculate_order(order_number)
+
+            
+            self.active_order["spread"] = round(ask - bid , 5)
+
 
             symbol = self.active_order["symbol"]
             volume = self.active_order["volume"]
@@ -161,7 +171,6 @@ class OrderManager(TickListener):
             self.active_order["state"] = OrderState.DONE
             self.active_order["status"] = order_status
             self.active_order["ended_at"] = now_time_iran()
-            self.active_order["spread"] = self.__calculate_spread(bid , ask)
             self.__add_to_orders(self.active_order)
         
         return self.active_order
@@ -193,10 +202,9 @@ class OrderManager(TickListener):
 
  
     #  Calculate Orders    
-    def __calculate_order(self , order_number) -> None:
-
+    def _calculate_order(self , order_number , bid=None , ask=None) -> None:
         buy_or_sell = self.__calculate_buy_or_sell(order_number)
-        current_price = self.__calculate_current_price(buy_or_sell)
+        current_price = self.__calculate_current_price(buy_or_sell , bid , ask)
         volume = self.__calculate_vol(order_number)
         take_profit , stop_loss  = self.__calculate_tp_sl(current_price, buy_or_sell , order_number)
 
@@ -275,11 +283,19 @@ class OrderManager(TickListener):
 
         return (final_tp_price, final_sl_price)
 
-    def __calculate_current_price(self, buy_or_sell: str) -> float:
+    def __calculate_current_price(self, buy_or_sell: str , bid = None , ask = None ) -> float:
+        price = 0.0
+        if bid is not None and ask is not None:
+            if buy_or_sell == "BUY":
+                print("__calculate_current_price BUY")
+                price= round(ask,5)
+            else:
+                print("__calculate_current_price SELL")
+                price= round(bid,5)
 
-        current_price = self.provider.current_price(self.config["symbol"], buy_or_sell)
+        else :
+            print("__calculate_current_price ELSE")
+            cp = self.provider.current_price(self.config["symbol"], buy_or_sell)
+            price= round(cp,5)
         
-        return round(current_price,5)
-
-    def __calculate_spread(self , bid , ask) -> float : 
-        return ask - bid
+        return price

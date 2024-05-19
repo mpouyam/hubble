@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime , timedelta
 import pytz
+from typing import List, Tuple
 
 def now_time_iran():
     # Get the current time in UTC timezone
@@ -32,3 +33,47 @@ def is_market_closed() -> bool:
 
     # Market is open on weekdays
     return False
+
+
+def format_datetime_tuple(dt: datetime) -> Tuple[int, int, int, int, int, int]:
+    return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
+def split_into_weeks(
+    sdate: str, edate: str
+) -> List[Tuple[datetime, datetime]]:
+
+    start_date = datetime.strptime(sdate, "%Y-%m-%d-%H-%M-%S")
+    end_date = datetime.strptime(edate, "%Y-%m-%d-%H-%M-%S")
+
+
+
+    if (end_date - start_date).days < 7:
+        return [(start_date, end_date)]
+
+    current_date = start_date
+    weeks = []
+    week = []
+    while current_date <= end_date:
+        if current_date.weekday() < 5:  # Skip weekends
+            week.append(current_date)
+        if len(week) == 5 or (
+            current_date.weekday() == 4 and current_date + timedelta(days=2) > end_date
+        ):
+            # Week is full or the end of the date range
+            weeks.append((week[0], week[-1]))
+            week = []
+        current_date += timedelta(days=1)
+    if week:
+        weeks.append((week[0], week[-1]))
+    
+    
+
+    
+    weeks_formatted = [
+        (format_datetime_tuple(start), format_datetime_tuple(end))
+        for start, end in weeks
+    ]
+    
+    return weeks_formatted
+
+

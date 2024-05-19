@@ -1,5 +1,7 @@
 
 import MetaTrader5 as mt5
+import pytz
+from datetime import datetime
 
 class PlatformConfig: 
     def __init__(self, config_dict: dict = None) -> None:
@@ -65,7 +67,7 @@ class Platform:
     def initialize(self, platform_config: PlatformConfig):
         self.platform_config = platform_config
         if mt5.initialize(
-            path= "C:\\Program Files\\MetaTrader 5\\terminal64.exe", #platform_config.get_path(),
+            path= "C:\\Program Files\\MetaTrader 5\\terminal64.exe" ,#platform_config.get_path(),
             login= platform_config.get_login(),
             password= platform_config.get_password(),
             server= platform_config.get_server(),
@@ -183,3 +185,20 @@ class Platform:
                 "comment": result.comment
             }
 
+    def account_details(self):
+        account_det = mt5.account_info()
+        return {"balance": account_det.balance,
+                "equity": account_det.equity,
+                "margin": account_det.margin,
+                "free margin": account_det.margin_free}
+
+    def historic_data(self, startDate , endDate  , symbol: str):
+        
+        timezone = pytz.timezone("Etc/UTC")
+        # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
+        utc_from = datetime(startDate[0], startDate[1], startDate[2] , startDate[3] , startDate[4],startDate[5], tzinfo=timezone)
+        utc_to = datetime(endDate[0], endDate[1], endDate[2],endDate[3],endDate[4],endDate[5], tzinfo=timezone)
+
+        hist_data = mt5.copy_ticks_range(symbol, utc_from , utc_to , mt5.COPY_TICKS_INFO)   
+
+        return hist_data
