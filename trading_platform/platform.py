@@ -205,12 +205,12 @@ class Platform(metaclass=SingletonMeta):
                 "free margin": account_det.margin_free}
 
     def historic_data(self, startDate , endDate  , symbol: str):
-        
         timezone = pytz.timezone("Etc/UTC")
         # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
         utc_from = datetime(startDate[0], startDate[1], startDate[2] , startDate[3] , startDate[4],startDate[5], tzinfo=timezone)
         utc_to = datetime(endDate[0], endDate[1], endDate[2],endDate[3],endDate[4],endDate[5], tzinfo=timezone)
 
-        hist_data = mt5.copy_ticks_range(symbol, utc_from , utc_to , mt5.COPY_TICKS_INFO)   
 
+        hist_data = mt5.copy_ticks_range(symbol, utc_from , utc_to , mt5.COPY_TICKS_INFO)   
         return hist_data
+

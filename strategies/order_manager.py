@@ -1,11 +1,7 @@
-from enum import StrEnum , Enum
+from enum import StrEnum
 import time
-from typing import Any, Dict, Tuple , Optional , TypedDict
-from trading_platform import Platform
+from typing import Tuple , Optional , TypedDict
 from utils import now_time_iran
-import uuid
-import json
-from abc import abstractmethod
 from publisher import TickListener
 
 
@@ -40,41 +36,10 @@ class OrderDetails(TypedDict):
 
 class OrderManager(TickListener):
     def __init__(self):
-        self.config = self._initialize_order_config()
         self.orders:list[OrderDetails] = []
         self.active_order: OrderDetails = None
 
-    def _initialize_order_config(self) -> Dict[str, Any]:
-        return {
-            "symbol": self.symbol,
-            "first_order_signal": "BUY",
-            "pip_unit": self.provider.get_symbol_pip_unit(self.symbol),
-            "try_count": 9,
-            "tp_limit": 10,
-            "sl_limit": 2,
-            "base_lot": 0.1,
-            "growth_factor": 1.3,
-            "base_index": 11,
-            "static_vol": {
-                1: 0.01,
-                2: 0.01,
-                3: 0.01,
-                4: 0.02,
-                5: 0.02,
-                6: 0.03,
-                7: 0.04,
-                8: 0.05,
-                9: 0.06,
-                10: 0.08,
-                11: 0.1,
-            },
-            "static_tp":{
-                # 1: 10, its ineteger like tp_limit 
-            },
-            "static_sl":{
-                # 1: 10, its ineteger like sl_limit 
-            },
-        }
+
     
     def _reset_order_state(self):
         self.orders = []
@@ -83,11 +48,7 @@ class OrderManager(TickListener):
     
     # Oder actions
     def _place_order(self , order_number: int ,bid:float , ask :float) -> OrderDetails:
-        for attempt in range(self.config["try_count"]):
-            print("-----------------------")
-            print(attempt)
-            print("-----------------------")
-
+        for attempt in range(self.config["orders_config"]["try_count"]):
             if attempt == 0 :
                 self._calculate_order(order_number , bid , ask)
             else:
@@ -131,12 +92,12 @@ class OrderManager(TickListener):
         active_order_ticket = self.active_order["ticket"]
 
 
-        for attempt in range(self.config["try_count"]):
+        for attempt in range(self.config["orders_config"]["try_count"]):
 
-            result = self.provider.close_position(active_order_ticket , self.symbol)
+            result = self.provider.close_position(active_order_ticket , self.config["orders_config"]["symbol"])
             if result["done"]:
                 self.active_order["state"] = OrderState.CLOSED
-                self.active_order["ended_at"] = now_time_iran()
+                self.active_order["ended_at"] = now_time_iran(self.clock)
 
                 self.__add_to_orders(self.active_order)
                 return self.active_order
@@ -170,7 +131,7 @@ class OrderManager(TickListener):
         if order_status != OrderStatus.NOTHING: 
             self.active_order["state"] = OrderState.DONE
             self.active_order["status"] = order_status
-            self.active_order["ended_at"] = now_time_iran()
+            self.active_order["ended_at"] = now_time_iran(self.clock)
             self.__add_to_orders(self.active_order)
         
         return self.active_order
@@ -203,16 +164,18 @@ class OrderManager(TickListener):
  
     #  Calculate Orders    
     def _calculate_order(self , order_number , bid=None , ask=None) -> None:
+
         buy_or_sell = self.__calculate_buy_or_sell(order_number)
         current_price = self.__calculate_current_price(buy_or_sell , bid , ask)
         volume = self.__calculate_vol(order_number)
         take_profit , stop_loss  = self.__calculate_tp_sl(current_price, buy_or_sell , order_number)
 
+
         self.active_order = {
             "index": order_number,
             "buy_or_sell": buy_or_sell,
             "ticket": None,
-            "symbol": self.config["symbol"],
+            "symbol": self.config["orders_config"]["symbol"],
             "volume": volume,
             "sl": stop_loss,
             "tp": take_profit,
@@ -220,22 +183,22 @@ class OrderManager(TickListener):
             "state": OrderState.INIT,
             "status": OrderStatus.NOTHING,
             "spread": None,
-            "started_at": now_time_iran(),
+            "started_at": now_time_iran(self.clock),
             "ended_at": None,
             "error": None
         }
 
-        my_dict_str = {str(key): str(value) if isinstance(value, (Enum, uuid.UUID)) else value for key, value in self.active_order.items()}
+        # my_dict_str = {str(key): str(value) if isinstance(value, (Enum, uuid.UUID)) else value for key, value in self.active_order.items()}
 
-        print("----------------------")
-        print(json.dumps(my_dict_str, indent=4))
-        print("----------------------")
+        # print("----------------------")
+        # print(json.dumps(my_dict_str, indent=4))
+        # print("----------------------")
 
         self.logger.info("Order Calculated !")
 
     def __calculate_buy_or_sell(self, index: int) -> str:
         
-        signal = self.config["first_order_signal"]
+        signal = self.config["orders_config"]["first_order_signal"]
         start_with_buy = signal == "BUY"
 
         if start_with_buy:
@@ -244,28 +207,28 @@ class OrderManager(TickListener):
             return "SELL" if index % 2 == 0 else "BUY"
 
     def __calculate_vol(self, index: int) -> float:
-
-        if index in self.config["static_vol"]:
-            return self.config["static_vol"][index]
+        if index in self.config["orders_config"]["static_vol"]:
+            return self.config["orders_config"]["static_vol"][index]
 
         else:
-            n = index - self.config["base_index"]
+            n = list(self.config["orders_config"]["static_vol"].keys())[-1]
             return round(
                 (
-                    pow(self.config["growth_factor"], n)
-                    * self.config["base_lot"]
+                    pow(self.config["orders_config"]["growth_factor"], index - n)
+                    * self.config["orders_config"]["base_lot"]
                 ),
                 2,
             )
 
     def __calculate_tp_sl(self, cp: float, buy_or_sell: str , index: int) -> Tuple[float, float]:
-        static_tp = self.config.get("static_tp", {})
-        static_sl = self.config.get("static_sl", {})
+
+        static_tp = self.config["orders_config"].get("static_tp", {})
+        static_sl = self.config["orders_config"].get("static_sl", {})
         
-        tp_limit = static_tp.get(index, self.config["tp_limit"])
-        sl_limit = static_sl.get(index, self.config["sl_limit"])
+        tp_limit = static_tp.get(index, self.config["orders_config"]["tp_limit"])
+        sl_limit = static_sl.get(index, self.config["orders_config"]["sl_limit"])
         
-        pip_unit = self.config["pip_unit"]
+        pip_unit = self.config["orders_config"]["pip_unit"]
 
         tp_pip = pip_unit * tp_limit
         sl_pip = pip_unit * sl_limit
@@ -287,15 +250,12 @@ class OrderManager(TickListener):
         price = 0.0
         if bid is not None and ask is not None:
             if buy_or_sell == "BUY":
-                print("__calculate_current_price BUY")
                 price= round(ask,5)
             else:
-                print("__calculate_current_price SELL")
                 price= round(bid,5)
 
         else :
-            print("__calculate_current_price ELSE")
-            cp = self.provider.current_price(self.config["symbol"], buy_or_sell)
+            cp = self.provider.current_price(self.config["orders_config"]["symbol"], buy_or_sell)
             price= round(cp,5)
         
         return price

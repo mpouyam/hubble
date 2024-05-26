@@ -1,4 +1,3 @@
-import sys
 import os
 
 
@@ -7,13 +6,18 @@ import os
 from trading_platform import PlatformConfig
 from .platform_mock import PlatformMock
 from .strategy_mock import TraderMock
-from utils import logger
+from .logger_mock import NullLogger
+from strategies import Config
 from repository import JSONBoxRepository
 from dotenv import load_dotenv
 load_dotenv()
+from typing import TypedDict
 
+   
+def back_test(startDate: str , endDate:str , config: Config) : 
+    config = {key: value.__dict__ for key, value in config.items()}
+    symbol = config["orders_config"]["symbol"]
 
-def back_test(startDate: str , endDate:str , symbol:str , config: dict = None) : 
     # Initialize the platform
     platform_config = PlatformConfig({
         'path': os.getenv('path_to_mt'),
@@ -22,12 +26,13 @@ def back_test(startDate: str , endDate:str , symbol:str , config: dict = None) :
         'server': os.getenv('server'),
         'symbol': symbol,
     })
+    
     platform = PlatformMock(platform_config)
 
 
 
     # Initialize the logger
-    Beanlogger = logger('bean')
+    Beanlogger = NullLogger('bean')
 
 
     repository_file_path = "backtest_repo.json"
@@ -38,12 +43,12 @@ def back_test(startDate: str , endDate:str , symbol:str , config: dict = None) :
             pass  # Create an empty file if it doesn't exist
 
     # Initialize the logger
-    BeanRepository = JSONBoxRepository("backtest_repo.json") 
+    BeanRepository = JSONBoxRepository(repository_file_path) 
 
     # Initialize the strategy
-    beanStrategy = TraderMock(platform ,Beanlogger, BeanRepository , symbol)
+    beanStrategy = TraderMock(platform ,Beanlogger, BeanRepository , config)
 
     hist_data = platform.historic_data(startDate,endDate, symbol)
-    for price in hist_data :
-        # print(price)
-        beanStrategy.on_tick(price)
+    for tick in hist_data :
+        tick = (tick[0] ,tick[1],tick[2],tick[3] )
+        beanStrategy.on_tick(tick)

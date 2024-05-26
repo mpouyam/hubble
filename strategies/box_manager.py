@@ -13,7 +13,12 @@ class BoxState(StrEnum):
     INIT = "INIT"
     RUNNING =  "RUNNING"
     FINISHED = "FINISHED"
+    PAUSE = "PAUSE"
     STOPPED = "STOPPED"
+
+class BoxSignal(StrEnum):
+    PAUSE = "PAUSE"
+    RESUME = "RESUME"
 
 class BoxManager(OrderManager):
 
@@ -21,21 +26,39 @@ class BoxManager(OrderManager):
     def __init__(self) -> None:
         self.state = BoxState.INIT
         self.box = self.__initialize_box()
+        self.pause = False
         super().__init__()
 
     def __initialize_box(self) -> Dict[str, Any]:
         account = self.provider.account_details()
         return {
             "id": uuid.uuid4(),
-            "symbol" : self.symbol,
+            "symbol" : self.config["orders_config"]["symbol"],
             "orders": None,
             "active_index": 1,
-            "started_at": now_time_iran(),
+            "started_at": None,
             "profit": account["balance"],
             "ended_at": None,
         }
 
+    def _handle_box_signal(self , signal: BoxSignal):
+        if signal not in BoxSignal:
+            return
 
+        elif signal == BoxSignal.PAUSE:
+            if self._get_box_state() == BoxState.RUNNING:
+                self.pause = True
+           
+            return
+    
+    
+        elif signal == BoxSignal.RESUME:
+            if self._get_box_state() == BoxState.PAUSE:
+                self.pause = False
+                self._set_box_state(BoxState.INIT)
+            
+            return
+    
     # Manage state
     def _box_state_manager(self, bid: float, ask: float) -> None:
         box_state = self._get_box_state()
@@ -43,13 +66,15 @@ class BoxManager(OrderManager):
         try:
 
             if box_state == BoxState.INIT:
-                self._init_action(active_order_number , bid , ask)
+                self._init_action(active_order_number , bid , ask )
 
             elif box_state == BoxState.RUNNING:
+
                 order = self._process_order(bid, ask)
                 order_status = order["status"]
 
                 if order_status == OrderStatus.TP :
+
                     self._tp_action()
 
                 elif order_status == OrderStatus.SL:
@@ -57,14 +82,17 @@ class BoxManager(OrderManager):
                     
                 elif order_status == OrderStatus.NOTHING:
                     return
+        
+        except Exception as e :
 
-        except Exception:
+            print("--------")
+            print(e)
+            print("--------")
             self._set_status("OFF")
             self._set_box_state(BoxState.STOPPED)
             self._save_data()
 
-    def _init_action(self , active_order_number:int , bid: float, ask: float):
-
+    def _init_action(self , active_order_number:int , bid: float, ask: float ):
         active_order = self._place_order(active_order_number , bid, ask)
 
         if active_order["state"] != OrderState.ACTIVE: 
@@ -72,6 +100,9 @@ class BoxManager(OrderManager):
                 "code": BoxErrorStatus.STATE_MANAGER_ERROR,
                 "message": active_order["error"]
             })
+        if self.box["started_at"] is None:
+            self.box["started_at"] = now_time_iran(self.clock) 
+        
         self._set_box_state(BoxState.RUNNING)
 
     def _tp_action(self):
@@ -81,6 +112,10 @@ class BoxManager(OrderManager):
 
     def _sl_action(self , bid:float , ask:float):
         new_active_order_number = self.__overplus_box_active_order_number()
+        if self.pause:
+            self._set_box_state(BoxState.PAUSE)
+            return
+        
         new_active_order = self._place_order(new_active_order_number , bid , ask)
 
         if new_active_order["state"] != OrderState.ACTIVE: 
@@ -92,6 +127,7 @@ class BoxManager(OrderManager):
     def _reset_box_state(self):
         self._set_box_state(BoxState.INIT)
         self.box = self.__initialize_box()
+        self.pause = False
 
     def _set_box_state(self , state: BoxState) -> None:
         self.state = state

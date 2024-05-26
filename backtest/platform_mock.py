@@ -22,6 +22,6 @@ class PlatformMock(Platform):
 
     def account_details(self):
         return {
-            "balance": 123456789,
+            "balance": 0,
         }
 
