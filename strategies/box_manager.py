@@ -46,13 +46,17 @@ class BoxManager(OrderManager):
             return
 
         elif signal == BoxSignal.PAUSE:
-            self.pause = True
+            if self._get_box_state() == BoxState.RUNNING:
+                self.pause = True
+           
             return
     
     
         elif signal == BoxSignal.RESUME:
-            self.pause = False
-            self._set_box_state(BoxState.INIT)
+            if self._get_box_state() == BoxState.PAUSE:
+                self.pause = False
+                self._set_box_state(BoxState.INIT)
+            
             return
     
     # Manage state

@@ -127,7 +127,7 @@ class Trader(BoxManager):
 
                 elif signal == Signal.RESUME:
                     current_status = self.get_status()
-                    if current_status == Status.ON and self._get_box_state == BoxState.PAUSE:
+                    if current_status == Status.ON:
                         self.logger.warning("Received RESUME signal. Waiting for the current position to finish.")
                         self._handle_box_signal(BoxSignal.RESUME)
 
