@@ -76,6 +76,12 @@ class Publisher:
         self._state = "initialized"
 
 
+    def change_config(self, config: PublisherConfig):
+        self.stop()
+        self.config = config
+        self.start()
+
+
     def add_tick_listener(self, listener):
         if listener.get_symbol() != self.config.get_symbol():
             raise Exception("Subscriber symbol is not consistent with engine's working symbol.")

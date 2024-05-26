@@ -1,1 +1,1 @@
-from .candle_range_signaller import CandleRangeSignaller
+from .candle_range_signaller import CandleRangeSignaller, CandleRangeSignallerConfig

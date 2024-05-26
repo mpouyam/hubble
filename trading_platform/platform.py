@@ -2,6 +2,7 @@
 import MetaTrader5 as mt5
 import pytz
 from datetime import datetime
+from utils import SingletonMeta
 
 class PlatformConfig: 
     def __init__(self, config_dict: dict = None) -> None:
@@ -55,15 +56,8 @@ class PlatformConfig:
     
 
 ## Singleton
-class Platform:
-    def __init__(self) -> None:
-        pass
+class Platform(metaclass=SingletonMeta):
 
-    def get_instance(self):
-        if not hasattr(self, 'instance'):
-            self.instance = Platform()
-        return self.instance
-    
     def initialize(self, platform_config: PlatformConfig):
         self.platform_config = platform_config
         if mt5.initialize(
@@ -110,7 +104,25 @@ class Platform:
     def get_symbol_pip_unit(self, symbol):
         si = mt5.symbol_info(symbol)
         return si.point * 10
+# time, open, high, low, close, tick_volume, spread and real_volume column
 
+    def get_candles_from(self, symbol: str, time_frame: int, from_date: datetime, count: int) -> list[dict]:
+        rates =  mt5.copy_rates_from(symbol, time_frame, from_date, count)
+        return [
+            {
+                'time': rate[0],
+                'open': rate[1],
+                'high': rate[2], 
+                'low': rate[3],
+                'close': rate[4],
+                'tick_volume': rate[5],
+                'spread': rate[6],
+                'real_volume': rate[7]
+            }
+            for rate in rates
+        ]
+
+    
     def place_bracket_order(self, symbol, vol, buy_sell, sl_price, tp_price, price):
         """
         Place a bracket order with MetaTrader 5.
