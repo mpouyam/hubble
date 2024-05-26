@@ -33,7 +33,7 @@ Beanlogger = logger('bean')
 BeanRepository = JSONBoxRepository("bean_repo.json") 
 
 # Initialize the strategy
-beanStrategy = Trader(platform ,Beanlogger,BeanRepository , os.getenv('symbol'),)
+beanStrategy = Trader(platform ,Beanlogger,BeanRepository)
 
 
 # Add the strategy as a tick listener
@@ -43,7 +43,6 @@ publisher.add_tick_listener(beanStrategy)
 publisher.start()
 
 # make main thread running
-print(int(os.getenv("http_port")))
 if os.getenv("http_server"):
     HubbleHttpController(beanStrategy, port = int(os.getenv("http_port"))).run()
 else:
