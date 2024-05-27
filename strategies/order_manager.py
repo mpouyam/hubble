@@ -164,7 +164,6 @@ class OrderManager(TickListener):
  
     #  Calculate Orders    
     def _calculate_order(self , order_number , bid=None , ask=None) -> None:
-
         buy_or_sell = self.__calculate_buy_or_sell(order_number)
         current_price = self.__calculate_current_price(buy_or_sell , bid , ask)
         volume = self.__calculate_vol(order_number)
@@ -188,16 +187,9 @@ class OrderManager(TickListener):
             "error": None
         }
 
-        # my_dict_str = {str(key): str(value) if isinstance(value, (Enum, uuid.UUID)) else value for key, value in self.active_order.items()}
-
-        # print("----------------------")
-        # print(json.dumps(my_dict_str, indent=4))
-        # print("----------------------")
-
         self.logger.info("Order Calculated !")
 
     def __calculate_buy_or_sell(self, index: int) -> str:
-        
         signal = self.config["orders_config"]["first_order_signal"]
         start_with_buy = signal == "BUY"
 
@@ -211,7 +203,7 @@ class OrderManager(TickListener):
             return self.config["orders_config"]["static_vol"][index]
 
         else:
-            n = list(self.config["orders_config"]["static_vol"].keys())[-1]
+            n = list(self.config["orders_config"]["static_vol"].keys())[-1] if self.config["orders_config"]["static_vol"] else 0
             return round(
                 (
                     pow(self.config["orders_config"]["growth_factor"], index - n)
@@ -221,7 +213,6 @@ class OrderManager(TickListener):
             )
 
     def __calculate_tp_sl(self, cp: float, buy_or_sell: str , index: int) -> Tuple[float, float]:
-
         static_tp = self.config["orders_config"].get("static_tp", {})
         static_sl = self.config["orders_config"].get("static_sl", {})
         
