@@ -85,9 +85,6 @@ class CandleRangeSignaller:
             time.sleep(1)
 
     def is_ascending(self, candles, count):
-        print("open:" , candles[0]['open'])
-        print("closings:", [candle['close'] for candle in candles])
-
         if len(candles) < count:
             return False
         if candles[0]['open'] >= candles[0]['close']:

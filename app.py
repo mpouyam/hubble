@@ -7,7 +7,9 @@ import time
 from dotenv import load_dotenv
 from http_server import HubbleHttpController
 import os 
-load_dotenv()
+from analyzer import CandleRangeSignaller, CandleRangeSignallerConfig
+
+load_dotenv(override=True)
 
 # Initialize the platform
 platform_config = PlatformConfig({
@@ -38,9 +40,17 @@ beanStrategy = Trader(platform ,Beanlogger,BeanRepository)
 
 # Add the strategy as a tick listener
 publisher.add_tick_listener(beanStrategy)
-
 # run publisher engine
 publisher.start()
+
+candle_range_signaller = CandleRangeSignaller(
+    os.getenv('symbol'),
+    platform,
+    lambda x: beanStrategy.handle_signal,
+    CandleRangeSignallerConfig().set_count(2)
+).start()
+
+
 
 # make main thread running
 if os.getenv("http_server"):

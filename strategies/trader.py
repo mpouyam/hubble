@@ -216,7 +216,6 @@ class Trader(BoxManager):
         if self.next_box_config is not None:
             self.next_box_config = None
         
-
         current_config["orders_config"]["pip_unit"]= self.provider.get_symbol_pip_unit(current_config["orders_config"]["symbol"])
 
         self.config = current_config
@@ -231,7 +230,7 @@ class Trader(BoxManager):
                 "not_working_hours": {},
             },
             "orders_config": {
-                "symbol": "GBPUSD_o",
+                "symbol": "GBPUSD",
                 "first_order_signal": "BUY",
                 "pip_unit": None,
                 "try_count": 9,
