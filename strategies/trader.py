@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from repository import BoxRepositoryInterface
 from utils import is_market_closed
 from .box_manager import BoxManager , BoxState , BoxSignal
-from utils import now_time_iran
+from utils import format_gmt_time
 
 class Signal(StrEnum):
     ON = "ON"
@@ -25,16 +25,16 @@ class Status(StrEnum):
 
 @dataclass
 class TraderConfig:
-    default_working_hours: Tuple[int, int]
-    working_hours: Dict[int, Tuple[int, int]]
-    default_not_working_hours: Tuple[int, int]
-    not_working_hours: Dict[int, Tuple[int, int]]
+    default_working_hours: Tuple[float, float]
+    working_hours: Dict[int, Tuple[float, float]]
+    default_not_working_hours: Tuple[float, float]
+    not_working_hours: Dict[int, Tuple[float, float]]
 
 @dataclass
 class OrdersConfig:
     symbol: str
     first_order_signal: str
-    pip_unit: Union[None, float]  # Change 'Any' to the appropriate type if available
+    pip_unit: Union[None, float]
     try_count: int
     tp_limit: int
     sl_limit: int
@@ -50,6 +50,7 @@ class Config(TypedDict):
     orders_config: OrdersConfig
 
 class Trader(BoxManager):
+    
     def __init__(self , provider , logger , repository:BoxRepositoryInterface , config = None) -> None:
         self.logger = logger
         self.repository = repository
@@ -144,35 +145,48 @@ class Trader(BoxManager):
     def change_config(self , config) -> None:
         data_dict = {key: value.__dict__ for key, value in config.items()}
         self.next_box_config = data_dict
-
-
-
-    
+ 
     def get_all_status(self):
         box_status = self._get_box_state()
         return f'{self.status} : {box_status}'
 
-
     # private method
     def __is_working_hours(self) -> bool:
-        # ir_timezone = pytz.timezone('Asia/Tehran')  # Use Tehran timezone for Iran
-        
-        # Convert timestamp to datetime in Iranian timezone if provided
-        timestamp_time = datetime.fromtimestamp(self.clock, pytz.utc).time() #.astimezone(ir_timezone).time()
-        
-        # Get current day of the week (Monday=0, Sunday=6)
-        current_day = datetime.now().weekday()
+        # Define the GMT timezone
+        gmt_tz = pytz.timezone('GMT')
+
+        # Convert self.clock (which is a timestamp) to a datetime object in GMT timezone
+        timestamp_time = datetime.fromtimestamp(self.clock, tz=gmt_tz)
+
+        # Get the current day of the week (Monday=0, Sunday=6)
+        current_day = timestamp_time.weekday()
 
         # Get working hours for the current day, or default if not specified
-        working_hours = self.config["trader_config"]["working_hours"].get(current_day, self.config["trader_config"]["default_working_hours"])
+        working_hours = self.config["trader_config"]["working_hours"].get(
+            current_day, 
+            self.config["trader_config"]["default_working_hours"]
+        )
+
+        # Parse start and end hours as floats
+        start_hour, end_hour = working_hours
+
+        # Extract hour and minute from start_hour and end_hour
+        start_hour_int = int(start_hour)
+        start_minute = int(round((start_hour - start_hour_int) * 100))
+        end_hour_int = int(end_hour)
+        end_minute = int(round((end_hour - end_hour_int) * 100))
 
         # Define start and end times for the current day's working hours
-        start_time = time(working_hours[0], 0)
-        end_time = time(working_hours[1], 0)
+        start_time = datetime.combine(timestamp_time.date(), time(hour=start_hour_int, minute=start_minute))
+        end_time = datetime.combine(timestamp_time.date(), time(hour=end_hour_int, minute=end_minute))
 
-        # Check if the current time is within working hours
+        # Localize start_time and end_time to GMT timezone
+        start_time = gmt_tz.localize(start_time)
+        end_time = gmt_tz.localize(end_time)
+
+        # Check if the timestamp_time is within working hours
         return start_time <= timestamp_time <= end_time
-
+    
     def _set_status(self , status : Status) -> None :
         self.status = status
     
@@ -181,7 +195,7 @@ class Trader(BoxManager):
         if self.state != BoxState.INIT and len(self.orders) > 0: 
             account = self.provider.account_details()
             self.box["state"] = self.state
-            self.box["ended_at"] = now_time_iran(self.clock)
+            self.box["ended_at"] = format_gmt_time(self.clock)
             self.box["orders"] = self._get_orders_list()
             self.box["profit"] = account["balance"] - self.box["profit"] 
             self.repository.save_box_data(self.box)
@@ -220,14 +234,13 @@ class Trader(BoxManager):
         current_config["orders_config"]["pip_unit"]= self.provider.get_symbol_pip_unit(current_config["orders_config"]["symbol"])
 
         self.config = current_config
-
-    
+ 
     def __default_configs(self) -> Config :
         return  {
             "trader_config": {
-                "default_working_hours": (9, 21),
+                "default_working_hours": (7.00, 21.00),
                 "working_hours": {},
-                "default_not_working_hours": (13, 17),
+                "default_not_working_hours": (13.00, 17.00),
                 "not_working_hours": {},
             },
             "orders_config": {
