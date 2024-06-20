@@ -2,12 +2,11 @@ import uuid
 from enum import StrEnum
 from typing import Any, Dict
 
-from utils import now_time_iran
+from utils import format_gmt_time
 from .order_manager import OrderManager , OrderStatus, OrderState
 
 class BoxErrorStatus(StrEnum):
     STATE_MANAGER_ERROR = "STATE_MANAGER_ERROR"
-
 
 class BoxState(StrEnum):
     INIT = "INIT"
@@ -22,7 +21,6 @@ class BoxSignal(StrEnum):
 
 class BoxManager(OrderManager):
 
-    # constructor
     def __init__(self) -> None:
         self.state = BoxState.INIT
         self.box = self.__initialize_box()
@@ -101,7 +99,7 @@ class BoxManager(OrderManager):
                 "message": active_order["error"]
             })
         if self.box["started_at"] is None:
-            self.box["started_at"] = now_time_iran(self.clock) 
+            self.box["started_at"] = format_gmt_time(self.clock) 
         
         self._set_box_state(BoxState.RUNNING)
 

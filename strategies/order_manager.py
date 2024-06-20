@@ -1,8 +1,9 @@
 from enum import StrEnum
 import time
 from typing import Tuple , Optional , TypedDict
-from utils import now_time_iran
+from utils import format_gmt_time
 from publisher import TickListener
+import collections
 
 
 class OrderStatus(StrEnum):
@@ -35,24 +36,22 @@ class OrderDetails(TypedDict):
 
 
 class OrderManager(TickListener):
+    
     def __init__(self):
         self.orders:list[OrderDetails] = []
         self.active_order: OrderDetails = None
 
-
-    
     def _reset_order_state(self):
         self.orders = []
         self.active_order = None
-    
     
     # Oder actions
     def _place_order(self , order_number: int ,bid:float , ask :float) -> OrderDetails:
         for attempt in range(self.config["orders_config"]["try_count"]):
             if attempt == 0 :
-                self._calculate_order(order_number , bid , ask)
+                self.__calculate_order(order_number , bid , ask)
             else:
-                self._calculate_order(order_number)
+                self.__calculate_order(order_number)
 
             
             self.active_order["spread"] = round(ask - bid , 5)
@@ -97,7 +96,7 @@ class OrderManager(TickListener):
             result = self.provider.close_position(active_order_ticket , self.config["orders_config"]["symbol"])
             if result["done"]:
                 self.active_order["state"] = OrderState.CLOSED
-                self.active_order["ended_at"] = now_time_iran(self.clock)
+                self.active_order["ended_at"] = format_gmt_time(self.clock)
 
                 self.__add_to_orders(self.active_order)
                 return self.active_order
@@ -131,7 +130,7 @@ class OrderManager(TickListener):
         if order_status != OrderStatus.NOTHING: 
             self.active_order["state"] = OrderState.DONE
             self.active_order["status"] = order_status
-            self.active_order["ended_at"] = now_time_iran(self.clock)
+            self.active_order["ended_at"] = format_gmt_time(self.clock)
             self.__add_to_orders(self.active_order)
         
         return self.active_order
@@ -161,9 +160,8 @@ class OrderManager(TickListener):
         else:
             return OrderStatus.NOTHING
 
- 
     #  Calculate Orders    
-    def _calculate_order(self , order_number , bid=None , ask=None) -> None:
+    def __calculate_order(self , order_number , bid=None , ask=None) -> None:
         buy_or_sell = self.__calculate_buy_or_sell(order_number)
         current_price = self.__calculate_current_price(buy_or_sell , bid , ask)
         volume = self.__calculate_vol(order_number)
@@ -182,7 +180,7 @@ class OrderManager(TickListener):
             "state": OrderState.INIT,
             "status": OrderStatus.NOTHING,
             "spread": None,
-            "started_at": now_time_iran(self.clock),
+            "started_at": format_gmt_time(self.clock),
             "ended_at": None,
             "error": None
         }
@@ -199,19 +197,20 @@ class OrderManager(TickListener):
             return "SELL" if index % 2 == 0 else "BUY"
 
     def __calculate_vol(self, index: int) -> float:
+        v = None
+
         if index in self.config["orders_config"]["static_vol"]:
-            return self.config["orders_config"]["static_vol"][index]
+            v = self.config["orders_config"]["static_vol"][index]
 
         else:
             n = list(self.config["orders_config"]["static_vol"].keys())[-1] if self.config["orders_config"]["static_vol"] else 0
-            return round(
-                (
-                    pow(self.config["orders_config"]["growth_factor"], index - n)
-                    * self.config["orders_config"]["base_lot"]
-                ),
-                2,
-            )
+            g = self.config["orders_config"]["growth_factor"]
+            p = index - n
+            b = self.config["orders_config"]["base_lot"]
+            v = round((pow(g, p) * b),2)
 
+        return v
+    
     def __calculate_tp_sl(self, cp: float, buy_or_sell: str , index: int) -> Tuple[float, float]:
         static_tp = self.config["orders_config"].get("static_tp", {})
         static_sl = self.config["orders_config"].get("static_sl", {})

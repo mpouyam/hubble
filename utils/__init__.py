@@ -1,3 +1,3 @@
 from .logger import logger 
-from .time import now_time_iran , is_market_closed , split_into_weeks
+from .time import format_gmt_time , is_market_closed , format_gmt_time
 from .ts_singleton import SingletonMeta

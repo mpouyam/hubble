@@ -5,8 +5,6 @@ from backtest import back_test
 from strategies import Config , OrdersConfig , TraderConfig
 import uvicorn
 import os 
-import json
-from datetime import datetime
 from typing import Optional
 
 
@@ -87,14 +85,10 @@ class HubbleHttpController():
                 end_date_parts = params.end_date.split("-")
                 end_date_tuple = tuple(map(int, end_date_parts))
 
-
                 # for date in dates: 
-
-                back_test(start_date_tuple , end_date_tuple , params.config)
-
-
-                result = analyzer()
+                result = back_test(start_date_tuple , end_date_tuple , params.config)
                 return result
+            
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
@@ -111,56 +105,6 @@ class BacktestParams(BaseModel):
     config: Config
 
 
-
-def analyzer():
-
-    # Step 1: Read the JSON file
-    file_path = "backtest_repo.json"
-    with open(file_path, mode="r+" ,  encoding='utf-8', errors='ignore') as file:
-        data = json.load(file)
-
-
-    box_durations = []
-    order_durations = []
-    for item in data:
-        box_start_time = datetime.fromisoformat(item['started_at'])
-        box_end_time = datetime.fromisoformat(item['ended_at'])
-        box_duration = (box_end_time - box_start_time).total_seconds() / 60  # Convert to minutes
-        box_durations.append(box_duration)
-        
-        for order in item['orders']:
-            order_start_time = datetime.fromisoformat(order['started_at'])
-            order_end_time = datetime.fromisoformat(order['ended_at'])
-            order_duration = (order_end_time - order_start_time).total_seconds() / 60  # Convert to minutes
-            order_durations.append(order_duration)
-
-    # Step 3: Calculate max, min, and average durations
-    max_box_duration = max(box_durations)
-    avg_box_duration = sum(box_durations) / len(box_durations)
-
-    max_order_duration = max(order_durations)
-    avg_order_duration = sum(order_durations) / len(order_durations)
-
-    # Step 4: Calculate total number of boxes and max/min order number
-    box_total_number = len(data)
-    max_order_number = max(item['active_index'] for item in data)
-
-
-    result = {
-        "MAX_BOX_DURATION": round(max_box_duration),
-        "AVG_BOX_DURATION": round(avg_box_duration),
-        "MAX_ORDER_DURATION": round(max_order_duration),
-        "AVG_ORDER_DURATION": round(avg_order_duration),
-        "BOX_TOTAL_NUMBER": round(box_total_number),
-        "MAX_ORDER_NUMBER": round(max_order_number),
-    }   
-
-     # Step 3: Clear the contents of the file
-    # with open(file_path, "w") as file:
-    #     json.dump([], file)
-
-    # Output the result
-    return result
 
 
 def validate_config(json_data):
