@@ -155,6 +155,59 @@ class Platform:
                 "comment": result.comment
             }
 
+    def place_buy_order(self, symbol, vol,price):
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": vol,
+            "type": mt5.ORDER_TYPE_BUY ,
+            "price": price,
+            "type_time": mt5.ORDER_TIME_GTC,
+        }
+
+
+        result= mt5.order_send(request)
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            return {
+                "done" :True,
+                "ticket": result.order,
+                "comment": "Done"
+            }
+        else:
+            return {
+                "done" :False,
+                "ticket": None,
+                "comment": result.comment
+            }
+
+    def place_sell_order(self, symbol, vol,price):
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": vol,
+            "type": mt5.ORDER_TYPE_SELL,
+            "price": price,
+            "type_time": mt5.ORDER_TIME_GTC,
+        }
+
+
+        result= mt5.order_send(request)
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            return {
+                "done" :True,
+                "ticket": result.order,
+                "price": result.price,
+                "comment": "Done"
+            }
+        else:
+            return {
+                "done" :False,
+                "ticket": None,
+                "comment": result.comment
+            }
+
 
     def place_pend_order(self, symbol, vol, buy_sell, sl, tp, cp):
         direction = mt5.ORDER_TYPE_BUY_STOP if buy_sell.startswith("B") else mt5.ORDER_TYPE_SELL_STOP

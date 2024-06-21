@@ -2,21 +2,24 @@ from enum import StrEnum
 import time
 from typing import Tuple , Optional , TypedDict
 from utils import format_gmt_time
-from publisher import TickListener
-import collections
-
+from __future__ import annotations
+from abc import ABC, abstractmethod
 
 class OrderStatus(StrEnum):
     SL = "SL"
     TP = "TP"
     NOTHING = "NOTHING"
 
-class OrderState(StrEnum):
+class OrderStates(StrEnum):
     INIT = "INIT"
     ACTIVE = "ACTIVE"
     DONE =  "DONE"
     CLOSED = "CLOSED"
     FAILED = "FAILED"
+
+class OrderDirection(StrEnum):
+    BUY = "BUY"
+    SELL = "SELL"
 
 class OrderDetails(TypedDict):
     index: int
@@ -34,95 +37,68 @@ class OrderDetails(TypedDict):
     ended_at: str
     error: Optional[str]
 
-
-class OrderManager(TickListener):
-    
-    def __init__(self):
-        self.orders:list[OrderDetails] = []
-        self.active_order: OrderDetails = None
-
-    def _reset_order_state(self):
-        self.orders = []
-        self.active_order = None
-    
-    # Oder actions
-    def _place_order(self , order_number: int ,bid:float , ask :float) -> OrderDetails:
-        for attempt in range(self.config["orders_config"]["try_count"]):
-            if attempt == 0 :
-                self.__calculate_order(order_number , bid , ask)
-            else:
-                self.__calculate_order(order_number)
-
-            
-            self.active_order["spread"] = round(ask - bid , 5)
+class SymbolInfo(TypedDict):
+    name: str
+    unit:float
 
 
-            symbol = self.active_order["symbol"]
-            volume = self.active_order["volume"]
-            buy_or_sell = self.active_order["buy_or_sell"]
-            sl = self.active_order["sl"]
-            tp = self.active_order["tp"]
-            price = self.active_order["price"]
+class OrderManager():
 
-            result = self.provider.place_bracket_order(symbol, volume, buy_or_sell, sl, tp, price)
-            
-            if result["done"]:
-                self.logger.info("Active order placed successfully !")
-                self.active_order["ticket"] = result["ticket"]
-                self.active_order["state"] = OrderState.ACTIVE
-                return self.active_order
+    _state = None
 
-            else:
-                self.logger.error(f"Attempt {attempt+1}: Failed to place active order: {result['comment']}")
-                self.logger.debug("trying one more time")
-                time.sleep(0.3)
+    def __init__(self , direction:OrderDirection , symbol_info: SymbolInfo , volume:float , price:float , created_at: int, sl: float , tp:float):
+        self.pip_unit = symbol_info["unit"]
+        self.sl = sl
+        self.tp = tp
+
+        self.symbol = symbol_info["name"]
+        self.direction = direction
+        self.ticket = None
+        self.volume = volume
+        self.price = price
+        self.status = OrderStatus.NOTHING
+        self.created_at = created_at
+        self.started_at = None
+        self.ended_at = None
+        self.error = None
         
-        # Restart the entire process if unable to place the order after all attempts
-        self.logger.error("Maximum retries reached for placing active order.")
-        self.active_order["state"] = OrderState.FAILED
-        self.active_order["error"] = result["comment"]
-        self.__add_to_orders(self.active_order)
-        return self.active_order
+        self.transition_to(InitState())
+
+    def transition_to(self, state: OrderState):
+        self._state = state
+        self._state.order_manager = self
+        self.state = state.get_status()
+
+    def on_tick(self , tick):
+        self._state.on_tick(tick)
     
     def _close_order(self) -> None:
-        if self.active_order is None:
+        if self.state is not OrderState.ACTIVE:
             return
 
-        active_order_ticket = self.active_order["ticket"]
+        active_order_ticket = self.ticket
 
 
-        for attempt in range(self.config["orders_config"]["try_count"]):
+        for attempt in range(9):
 
-            result = self.provider.close_position(active_order_ticket , self.config["orders_config"]["symbol"])
+            result = self.provider.close_position(active_order_ticket , self.symbol)
+            
             if result["done"]:
-                self.active_order["state"] = OrderState.CLOSED
-                self.active_order["ended_at"] = format_gmt_time(self.clock)
-
-                self.__add_to_orders(self.active_order)
-                return self.active_order
+                self.state = OrderState.CLOSED
+                self.ended_at = format_gmt_time(self.clock)
+                return self
 
             else:
                 self.logger.error(f"Attempt {attempt+1}: Failed To Close Active Order: {result['comment']}")
                 self.logger.debug("Trying One More Time")
                 time.sleep(0.3)
-                self.logger.error("Maximum Retries Reached For Closing Active Order.")
+                
+        self.logger.error("Maximum Retries Reached For Closing Active Order.")
+        self.state = OrderState.FAILED
+        self.error = result["comment"]
         
-        self.active_order["state"] = OrderState.FAILED
-        self.active_order["error"] = result["comment"]
-        self.__add_to_orders(self.active_order)
-        
-        return self.active_order
+        return self
      
-    def _get_orders_list(self) -> list[OrderDetails]:
-        return self.orders
-
-    def __add_to_orders(self , order:OrderDetails , index=None) -> None :
-        if index is not None :
-            self.orders.insert(index , order)
-
-        else:
-            self.orders.append(order)    
-
     # Process Orders
     def _process_order(self, bid: float, ask: float) -> OrderDetails:
         order_status = self.__process_buy_order(bid) if self.active_order["buy_or_sell"] == "BUY" else self.__process_sell_order(ask)
@@ -211,23 +187,21 @@ class OrderManager(TickListener):
 
         return v
     
-    def __calculate_tp_sl(self, cp: float, buy_or_sell: str , index: int) -> Tuple[float, float]:
-        static_tp = self.config["orders_config"].get("static_tp", {})
-        static_sl = self.config["orders_config"].get("static_sl", {})
-        
-        tp_limit = static_tp.get(index, self.config["orders_config"]["tp_limit"])
-        sl_limit = static_sl.get(index, self.config["orders_config"]["sl_limit"])
-        
+    def __calculate_tp_sl(self) -> Tuple[float, float]:
+
+        tp_limit = self.config["orders_config"]["tp_limit"]
+        sl_limit = self.config["orders_config"]["sl_limit"]
         pip_unit = self.config["orders_config"]["pip_unit"]
 
         tp_pip = pip_unit * tp_limit
         sl_pip = pip_unit * sl_limit
+        cp = self.price
 
-        if buy_or_sell == "SELL":
+        if self.direction == OrderDirection.SELL:
             tp_price = cp - tp_pip
             sl_price = cp + sl_pip
 
-        else:
+        elif self.direction == OrderDirection.BUY:
             tp_price = cp + tp_pip
             sl_price = cp - sl_pip
 
@@ -249,3 +223,77 @@ class OrderManager(TickListener):
             price= round(cp,5)
         
         return price
+
+
+
+class OrderState(ABC):
+
+    @property
+    def order_manager(self) -> OrderManager:
+        return self._order_manager
+
+    @order_manager.setter
+    def order_manager(self, order_manager: OrderManager) -> None:
+        self._order_manager = order_manager
+
+    @abstractmethod
+    def on_tick(self) -> None:
+        pass
+    
+    @abstractmethod
+    def get_status(self) -> OrderStates:
+        pass
+
+
+class InitState(OrderState):
+    def on_tick(self) -> None:
+        try:
+            # try to place active order
+            # change price for actuall price
+            # calculate actuall sl based on price
+
+            self.order_manager.transition_to(ActivState())
+        except:
+            self.order_manager.transition_to(ErrorState())
+
+    def get_status() -> OrderStates:
+        return OrderStates.INIT
+
+
+class ActivState(OrderState):
+    def on_tick(self) -> None:
+        # should process order
+        # we should add strategy for tariling stop and normal order
+        # here we 
+        print("ConcreteStateB handles request1.")
+
+    def process_order(self) -> None:
+        self.order_manager.transition_to(ErrorState())
+
+    def get_status(self) -> OrderStates:
+        return OrderStates.ACTIVE
+
+
+class ErrorState(OrderState):
+    try_count: int = 0
+
+    def on_tick(self) -> None:
+        self.try_count += 1
+        
+        try:
+            # check try_count if higher than 9 should send error
+            # if it was lower than 9 should try to palce order
+            # if order placed succecfully change state
+            # 
+
+            print("ConcreteStateB handles request1.")
+        
+        except:
+            print("ConcreteStateB handles request1.")
+    
+    def process_order(self) -> None:
+        pass
+        # self.order_manager.transition_to(ConcreteStateA())
+    
+    def get_status(self) -> OrderStates:
+        return OrderStates.FAILED
