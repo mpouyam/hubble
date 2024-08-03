@@ -1,27 +1,28 @@
+from abc import ABC, abstractmethod
 from datetime import datetime, time
 from typing import Tuple
 from enum import StrEnum
-from typing import Dict, Tuple , Union,TypedDict
+from typing import Dict, Tuple, Union, TypedDict
 import pytz
 from dataclasses import dataclass
 
-
 from repository import BoxRepositoryInterface
+from trading_platform import Platform
 from utils import is_market_closed
-from .box_manager import BoxManager , BoxState , BoxSignal
+from .box_manager import BoxManager, BoxSignal, BoxConfig
 from utils import format_gmt_time
+from .order_manager import OrderDirection
 
-class Signal(StrEnum):
+
+class TraderSignal(StrEnum):
     ON = "ON"
-    OFF = "OFF"
-    OFFF = "OFFF"
-    PAUSE = "PAUSE"
-    RESUME = "RESUME"
+    SHUT_DOWN = "SHUT_DOWN"
 
 
 class Status(StrEnum):
     ON = "ON"
     OFF = "OFF"
+
 
 @dataclass
 class TraderConfig:
@@ -29,6 +30,7 @@ class TraderConfig:
     working_hours: Dict[int, Tuple[float, float]]
     default_not_working_hours: Tuple[float, float]
     not_working_hours: Dict[int, Tuple[float, float]]
+
 
 @dataclass
 class OrdersConfig:
@@ -44,46 +46,54 @@ class OrdersConfig:
     static_tp: Dict[int, int]
     static_sl: Dict[int, int]
 
+
 @dataclass
 class Config(TypedDict):
     trader_config: TraderConfig
     orders_config: OrdersConfig
 
+
+@dataclass
+class TraderSignalData(TypedDict):
+    symbol: str
+    direction: OrderDirection
+
+
 class Trader(BoxManager):
-    
-    def __init__(self , provider , logger , repository:BoxRepositoryInterface , config = None) -> None:
+
+    def __init__(self, provider, logger, repository: BoxRepositoryInterface, config=None) -> None:
         self.logger = logger
         self.repository = repository
         self.provider = provider
-        
+
         self.status = Status.OFF
         self.clock = None
         self.config = None
         self.next_box_config = None
-        self.__initialize_config(config)    
-        super().__init__()
+        self.__initialize_config(config)
 
     # public method
-    def on_tick(self, tick:Tuple[int , float , float , float]) -> None:
+    def on_tick(self, tick: Tuple[int, float, float, float]) -> None:
         box_state = self._get_box_state()
         status = self.get_status()
-        timestamp , bid , ask , vol = tick 
+        timestamp, bid, ask, vol = tick
         self.clock = int(timestamp)
 
-        if is_market_closed(timestamp) :
+        if is_market_closed(timestamp):
             self.logger.warning("Market Is Closed")
             return
-        
-        elif status == Status.OFF and box_state not in [BoxState.RUNNING , BoxState.PAUSE] :
+
+        elif status == Status.OFF and box_state not in [BoxState.RUNNING, BoxState.PAUSE]:
             self.logger.warning("Box Is in OFF Mode")
             return
-                
-        elif status == Status.ON and box_state not in [BoxState.RUNNING , BoxState.PAUSE] and not self.__is_working_hours() :
+
+        elif status == Status.ON and box_state not in [BoxState.RUNNING,
+                                                       BoxState.PAUSE] and not self.__is_working_hours():
             self.logger.warning("Box Is in ON Mode but not within working hours")
             return
-        
+
         else:
-            self._box_state_manager(bid , ask)
+            self._box_state_manager(bid, ask)
             return
 
     def get_symbol(self) -> str:
@@ -94,22 +104,22 @@ class Trader(BoxManager):
             if signal not in Signal:
                 self.logger.error(f"Invalid signal received: {signal}")
                 return
-            
+
             else:
                 if signal == Signal.ON:
-                    if self._get_box_state() not in [BoxState.RUNNING , BoxState.PAUSE]:
+                    if self._get_box_state() not in [BoxState.RUNNING, BoxState.PAUSE]:
                         self.logger.warning("Received ON signal.")
                         self.__initialize_config(self.next_box_config)
                         self._reset_order_state()
                         self._reset_box_state()
                         self._set_status(Status.ON)
                         return
-            
+
                 elif signal == Signal.OFF:
                     self.logger.warning("Received OFF signal. Waiting for the current box to finish.")
                     self._set_status(Status.OFF)
                     return
-                
+
                 elif signal == Signal.OFFF:
                     self.logger.error("Received OFFF (OFF Force) signal. Stopping the current box")
                     self._set_status(Status.OFF)
@@ -117,13 +127,13 @@ class Trader(BoxManager):
                     self._close_order()
                     self._save_data()
                     return
-                
+
                 elif signal == Signal.PAUSE:
                     current_status = self.get_status()
                     if current_status == Status.ON:
                         self.logger.warning("Received PAUSE signal. Waiting for the current position to finish.")
                         self._handle_box_signal(BoxSignal.PAUSE)
-                        
+
                     return
 
                 elif signal == Signal.RESUME:
@@ -133,19 +143,19 @@ class Trader(BoxManager):
                         self._handle_box_signal(BoxSignal.RESUME)
 
                     return
-        
-        except Exception as e :
+
+        except Exception as e:
             print("-----------------")
             print(e)
             print("-----------------")
 
     def get_status(self) -> Status:
         return self.status
-    
-    def change_config(self , config) -> None:
+
+    def change_config(self, config) -> None:
         data_dict = {key: value.__dict__ for key, value in config.items()}
         self.next_box_config = data_dict
- 
+
     def get_all_status(self):
         box_status = self._get_box_state()
         return f'{self.status} : {box_status}'
@@ -163,7 +173,7 @@ class Trader(BoxManager):
 
         # Get working hours for the current day, or default if not specified
         working_hours = self.config["trader_config"]["working_hours"].get(
-            current_day, 
+            current_day,
             self.config["trader_config"]["default_working_hours"]
         )
 
@@ -186,27 +196,27 @@ class Trader(BoxManager):
 
         # Check if the timestamp_time is within working hours
         return start_time <= timestamp_time <= end_time
-    
-    def _set_status(self , status : Status) -> None :
+
+    def _set_status(self, status: Status) -> None:
         self.status = status
-    
+
     def _save_data(self) -> None:
 
-        if self.state != BoxState.INIT and len(self.orders) > 0: 
+        if self.state != BoxState.INIT and len(self.orders) > 0:
             account = self.provider.account_details()
             self.box["state"] = self.state
             self.box["ended_at"] = format_gmt_time(self.clock)
             self.box["orders"] = self._get_orders_list()
-            self.box["profit"] = account["balance"] - self.box["profit"] 
+            self.box["profit"] = account["balance"] - self.box["profit"]
             self.repository.save_box_data(self.box)
 
-    def __initialize_config(self  , config = None) -> Config:
+    def __initialize_config(self, config=None) -> Config:
 
         if self.config is None and config is None:
             current_config = self.__default_configs()
         elif self.config is None and config is not None:
             current_config = config
-        elif self.config is not None and config is None :
+        elif self.config is not None and config is None:
             current_config = self.config
         elif self.config is not None and config is not None:
             current_config = config
@@ -219,24 +229,24 @@ class Trader(BoxManager):
         # #     for section, values in config.items():
         # #         if section in current_config:
         # #             current_config[section].update({k: v for k, v in values.items() if k in current_config[section]})
-        
+
         #     # Update result with the provided config, but only for existing fields
         #     for section, values in self.config.items():
         #         if section in current_config:
         #             current_config[section].update({k: v for k, v in values.items() if k not in current_config[section]})
         #         else:
         #             current_config[section] = values
-        
+
         if self.next_box_config is not None:
             self.next_box_config = None
-        
 
-        current_config["orders_config"]["pip_unit"]= self.provider.get_symbol_pip_unit(current_config["orders_config"]["symbol"])
+        current_config["orders_config"]["pip_unit"] = self.provider.get_symbol_pip_unit(
+            current_config["orders_config"]["symbol"])
 
         self.config = current_config
- 
-    def __default_configs(self) -> Config :
-        return  {
+
+    def __default_configs(self) -> Config:
+        return {
             "trader_config": {
                 "default_working_hours": (7.00, 21.00),
                 "working_hours": {},
@@ -252,7 +262,7 @@ class Trader(BoxManager):
                 "sl_limit": 1,
                 "base_lot": 0.1,
                 "growth_factor": 1.3,
-                "static_vol":  {
+                "static_vol": {
                     1: 0.01,
                     2: 0.01,
                     3: 0.01,
@@ -269,3 +279,157 @@ class Trader(BoxManager):
                 "static_sl": {},
             }
         }
+
+
+class TraderState(ABC):
+    _trader_manager: 'TraderManager' = None
+
+    @property
+    def trader_manager(self) -> 'TraderManager':
+        return self._trader_manager
+
+    @trader_manager.setter
+    def trader_manager(self, trader_manager: 'TraderManager') -> None:
+        self._trader_manager = trader_manager
+
+    @abstractmethod
+    def on_tick(self, tick) -> None:
+        pass
+
+    @abstractmethod
+    def on_signal(self, signal: TraderSignal, data) -> None:
+        pass
+
+
+class TraderManager:
+    _state: TraderState = None
+
+    def __init__(self, provider: Platform, logger, traderConfig: BoxConfig, timeManager) -> None:
+
+        self.provider = provider
+        self.logger = logger
+        self.box_manager = None
+        self.time_manager = timeManager
+        self.transition_to(Listening())
+
+    def transition_to(self, state: TraderState) -> None:
+        self._state = state
+        self._state.box_manager = self
+
+    def on_signal(self, signal: BoxSignal, data) -> None:
+        if signal not in BoxSignal:
+            return
+        else:
+            self._state.on_signal(signal)
+
+    def on_tick(self, tick) -> None:
+        self._state.on_tick(tick)
+
+
+class Listening(TraderState):
+    clock: int
+
+    def on_tick(self, tick) -> None:
+        self.clock = tick[0]
+
+    def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
+        if signal == TraderSignal.SHUT_DOWN:
+            return
+
+        if self.trader_manager.box_manager is not None:
+            self.trader_manager.transition_to(Processing())
+            return
+
+        if not self.__is_working_hour():
+            return
+        self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
+
+    def __is_working_hour(self) -> bool:
+        time = format_gmt_time(self.clock)
+        return True
+
+
+class Preparing(TraderState):
+
+    def is_done(self) -> bool:
+        return False
+
+    def on_signal(self, signal: BoxSignal) -> None:
+        if signal == BoxSignal.CLOSE:
+            self.box_manager.transition_to(Finished())
+        elif signal != BoxSignal.RESUME:
+            self.box_manager.transition_to(Preparing())
+
+    def on_tick(self, tick) -> None:
+        return
+
+
+class Processing(TraderState):
+    clock: int
+    order_errors_need_action = [OrderErrorStatus.PLACING, OrderErrorStatus.CLOSING]
+
+    def is_done(self) -> bool:
+        return False
+
+    def on_signal(self, signal: BoxSignal) -> None:
+        if signal == BoxSignal.CLOSE and self.box_manager.order_manager is not None:
+            self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
+
+    def on_tick(self, tick) -> None:
+        clock = tick[0]
+        order_is_done = self.box_manager.order_manager.is_done()
+
+        if order_is_done:
+            order = self.box_manager.order_manager.get_prototype()
+            self.box_manager.orders.append(order)
+            self.box_manager.order_manager = None
+            self.__handle_order(order)
+
+        else:
+            self.box_manager.order_manager.on_tick(tick)
+
+    def __handle_order(self, order: OrderInfo) -> None:
+        order_status = order.status
+        if order.error_status in self.order_errors_need_action:
+            self.__error_action(order.error_status)
+        elif order_status == OrderStatus.TP:
+            self.__tp_action()
+        elif order_status == OrderStatus.SL:
+            self.__sl_action()
+        elif order_status == OrderStatus.CLOSED:
+            self.__close_action()
+
+    def __tp_action(self):
+        self.box_manager.ended_at = format_gmt_time(self.clock)
+        self.box_manager.transition_to(Finished())
+
+    def __sl_action(self):
+        # check situation for pause
+        if self.box_manager.active_order_number in self.box_manager.pause_times:
+            self.box_manager.transition_to(Paused())
+        else:
+            self.box_manager.transition_to(Preparing())
+
+    def __close_action(self):
+        self.box_manager.ended_at = format_gmt_time(self.clock)
+        self.box_manager.transition_to(Finished())
+
+    def __error_action(self, error_code: OrderErrorStatus):
+        if error_code == OrderErrorStatus.PLACING:
+            self.box_manager.ended_at = format_gmt_time(self.clock)
+            self.box_manager.transition_to(Finished())
+        elif error_code == OrderErrorStatus.CLOSING:
+            self.box_manager.ended_at = format_gmt_time(self.clock)
+            self.box_manager.transition_to(Finished())
+
+
+class Finished(TraderState):
+
+    def on_signal(self, signal: BoxSignal) -> None:
+        return
+
+    def is_done(self) -> bool:
+        return True
+
+    def on_tick(self, tick) -> None:
+        return

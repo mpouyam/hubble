@@ -1,2 +1,2 @@
 from .box_manager import BoxManager
-from .trader import Trader, Signal , Config , OrdersConfig , TraderConfig
+from .trader import Trader, Signal, Config, OrdersConfig, TraderConfig

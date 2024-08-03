@@ -1,9 +1,9 @@
-
 import MetaTrader5 as mt5
 import pytz
 from datetime import datetime
 
-class PlatformConfig: 
+
+class PlatformConfig:
     def __init__(self, config_dict: dict = None) -> None:
         if config_dict is not None:
             self.path = config_dict.get('path')
@@ -15,34 +15,37 @@ class PlatformConfig:
     def set_path(self, path):
         self.path = path
         return self
+
     def get_path(self):
         return self.path
-    
+
     def set_server(self, server):
         self.server = server
         return self
+
     def get_server(self):
         return self.server
 
     def set_login(self, login):
         self.login = login
         return self
+
     def get_login(self):
         return self.login
 
     def set_password(self, password):
         self.password = password
         return self
+
     def get_password(self):
         return self.password
-    
+
     def set_symbol(self, symbol):
         self.symbol = symbol
         return self
 
     def get_symbol(self):
         return self.symbol
-
 
     def get_config(self) -> dict:
         return {
@@ -52,9 +55,8 @@ class PlatformConfig:
             'password': self.get_password(),
             'symbol': self.get_symbol()
         }
-    
 
-## Singleton
+
 class Platform:
     def __init__(self) -> None:
         pass
@@ -63,42 +65,39 @@ class Platform:
         if not hasattr(self, 'instance'):
             self.instance = Platform()
         return self.instance
-    
+
     def initialize(self, platform_config: PlatformConfig):
         self.platform_config = platform_config
         if mt5.initialize(
-            path= "C:\\Program Files\\MetaTrader 5\\terminal64.exe" ,#platform_config.get_path(),
-            login= platform_config.get_login(),
-            password= platform_config.get_password(),
-            server= platform_config.get_server(),
+                path="C:\\Program Files\\MetaTrader 5\\terminal64.exe",  # platform_config.get_path(),
+                login=platform_config.get_login(),
+                password=platform_config.get_password(),
+                server=platform_config.get_server(),
         ):
-            print("Platform Initialized Successfuly.")
+            print("Platform Initialized Successfully.")
             return self
         else:
             raise Exception("Platform Initialization Failed!")
-    
 
-    
     def get_symbol_info(self, symbol: str):
         tick_info = mt5.symbol_info_tick(symbol)
-        return (tick_info.time , tick_info.bid , tick_info.ask , tick_info.volume)
-    
-    def close_position(self, ticket , symbol):
-        result = mt5.Close(symbol,ticket=ticket)
+        return tick_info.time, tick_info.bid, tick_info.ask, tick_info.volume
+
+    def close_position(self, ticket, symbol):
+        result = mt5.Close(symbol, ticket=ticket)
 
         if result:
             return {
-                "done" :True,
+                "done": True,
                 "ticket": ticket,
                 "comment": "Done"
             }
         else:
             return {
-                "done" :False,
+                "done": False,
                 "ticket": None,
                 "comment": result.comment
             }
-
 
     def current_price(self, symbol, buy_sell):
         si = mt5.symbol_info_tick(symbol)
@@ -112,20 +111,6 @@ class Platform:
         return si.point * 10
 
     def place_bracket_order(self, symbol, vol, buy_sell, sl_price, tp_price, price):
-        """
-        Place a bracket order with MetaTrader 5.
-
-        Args:
-            symbol (str): The trading symbol (e.g., 'EURUSD').
-            volume (float): The volume of the order.
-            order_type (OrderType): The type of the order, either BUY or SELL.
-            stop_loss_price (float): The price to set as the stop loss.
-            take_profit_price (float): The price to set as the take profit.
-            entry_price (float): The entry price for the order.
-
-        Returns:
-            dict: Result of the order operation including status and any relevant messages.
-        """
 
         direction = mt5.ORDER_TYPE_BUY if buy_sell.startswith("B") else mt5.ORDER_TYPE_SELL
 
@@ -140,74 +125,105 @@ class Platform:
             "type_time": mt5.ORDER_TIME_GTC,
         }
 
-
-        result= mt5.order_send(request)
+        result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             return {
-                "done" :True,
+                "done": True,
                 "ticket": result.order,
                 "comment": "Done"
             }
         else:
             return {
-                "done" :False,
+                "done": False,
                 "ticket": None,
+                "code": result.retcode,
                 "comment": result.comment
             }
 
-    def place_buy_order(self, symbol, vol,price):
+    def place_buy_order(self, symbol, vol, price, sl, tp):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
             "volume": vol,
-            "type": mt5.ORDER_TYPE_BUY ,
+            "sl": sl,
+            "tp": tp,
+            "type": mt5.ORDER_TYPE_BUY,
             "price": price,
             "type_time": mt5.ORDER_TIME_GTC,
         }
 
+        result = mt5.order_send(request)
 
-        result= mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             return {
-                "done" :True,
-                "ticket": result.order,
-                "comment": "Done"
-            }
-        else:
-            return {
-                "done" :False,
-                "ticket": None,
-                "comment": result.comment
-            }
-
-    def place_sell_order(self, symbol, vol,price):
-
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": vol,
-            "type": mt5.ORDER_TYPE_SELL,
-            "price": price,
-            "type_time": mt5.ORDER_TIME_GTC,
-        }
-
-
-        result= mt5.order_send(request)
-        if result.retcode == mt5.TRADE_RETCODE_DONE:
-            return {
-                "done" :True,
+                "done": True,
                 "ticket": result.order,
                 "price": result.price,
                 "comment": "Done"
             }
         else:
             return {
-                "done" :False,
+                "done": False,
                 "ticket": None,
+                "code": result.retcode,
                 "comment": result.comment
             }
 
+    def place_sell_order(self, symbol, vol, price, sl):
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": vol,
+            "sl": sl,
+            "tp": tp,
+            "type": mt5.ORDER_TYPE_SELL,
+            "price": price,
+            "type_time": mt5.ORDER_TIME_GTC,
+        }
+
+        result = mt5.order_send(request)
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            return {
+                "done": True,
+                "ticket": result.order,
+                "price": result.price,
+                "comment": "Done"
+            }
+        else:
+            return {
+                "done": False,
+                "ticket": None,
+                "code": result.retcode,
+                "comment": result.comment
+            }
+
+    def modify_tp_sl_order(self, ticket, sl: float = None, tp: float = None):
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": ticket,
+        }
+
+        if sl is not None:
+            request["sl"] = sl
+
+        if tp is not None:
+            request["tp"] = tp
+
+        result = mt5.order_send(request)
+
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            return {
+                "done": True,
+                "comment": "Done"
+            }
+        else:
+            return {
+                "done": False,
+                "comment": result.comment,
+                "code": result.retcode
+            }
 
     def place_pend_order(self, symbol, vol, buy_sell, sl, tp, cp):
         direction = mt5.ORDER_TYPE_BUY_STOP if buy_sell.startswith("B") else mt5.ORDER_TYPE_SELL_STOP
@@ -227,13 +243,13 @@ class Platform:
         result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             return {
-                "done" :True,
+                "done": True,
                 "ticket": result.order,
                 "comment": "Done"
             }
         else:
             return {
-                "done" :False,
+                "done": False,
                 "ticket": None,
                 "comment": result.comment
             }
@@ -245,13 +261,12 @@ class Platform:
                 "margin": account_det.margin,
                 "free margin": account_det.margin_free}
 
-    def historic_data(self, startDate , endDate  , symbol: str):
+    def historic_data(self, startDate, endDate, symbol: str):
         timezone = pytz.timezone("Etc/UTC")
         # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
-        utc_from = datetime(startDate[0], startDate[1], startDate[2] , startDate[3] , startDate[4],startDate[5], tzinfo=timezone)
-        utc_to = datetime(endDate[0], endDate[1], endDate[2],endDate[3],endDate[4],endDate[5], tzinfo=timezone)
+        utc_from = datetime(startDate[0], startDate[1], startDate[2], startDate[3], startDate[4], startDate[5],
+                            tzinfo=timezone)
+        utc_to = datetime(endDate[0], endDate[1], endDate[2], endDate[3], endDate[4], endDate[5], tzinfo=timezone)
 
-
-        hist_data = mt5.copy_ticks_range(symbol, utc_from , utc_to , mt5.COPY_TICKS_INFO)   
+        hist_data = mt5.copy_ticks_range(symbol, utc_from, utc_to, mt5.COPY_TICKS_INFO)
         return hist_data
-
