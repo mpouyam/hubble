@@ -1,22 +1,23 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime, time
-from typing import Tuple
 from enum import StrEnum
 from typing import Dict, Tuple, Union, TypedDict
+
 import pytz
-from dataclasses import dataclass
 
 from repository import BoxRepositoryInterface
 from trading_platform import Platform
+from utils import format_gmt_time
 from utils import is_market_closed
 from .box_manager import BoxManager, BoxSignal, BoxConfig
-from utils import format_gmt_time
 from .order_manager import OrderDirection
 
 
 class TraderSignal(StrEnum):
-    ON = "ON"
+    RUN = "RUN"
     SHUT_DOWN = "SHUT_DOWN"
+    ON = "ON"
 
 
 class Status(StrEnum):
@@ -305,7 +306,7 @@ class TraderManager:
     _state: TraderState = None
 
     def __init__(self, provider: Platform, logger, traderConfig: BoxConfig, timeManager) -> None:
-
+        self.should_stop = False
         self.provider = provider
         self.logger = logger
         self.box_manager = None
@@ -334,102 +335,79 @@ class Listening(TraderState):
 
     def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
         if signal == TraderSignal.SHUT_DOWN:
-            return
+            self.trader_manager.transition_to(Leave())
 
-        if self.trader_manager.box_manager is not None:
-            self.trader_manager.transition_to(Processing())
-            return
+        if signal == TraderSignal.RUN:
+            should_work = self._trader_manager.time_manager.should_work(self.clock)
+            if should_work:
+                if self.trader_manager.box_manager is None:
+                    self.trader_manager.transition_to(Preparing())
+                else:
+                    self.trader_manager.transition_to(Processing())
 
-        if not self.__is_working_hour():
-            return
-        self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
-
-    def __is_working_hour(self) -> bool:
-        time = format_gmt_time(self.clock)
-        return True
+        return
 
 
 class Preparing(TraderState):
 
-    def is_done(self) -> bool:
-        return False
-
-    def on_signal(self, signal: BoxSignal) -> None:
-        if signal == BoxSignal.CLOSE:
-            self.box_manager.transition_to(Finished())
-        elif signal != BoxSignal.RESUME:
-            self.box_manager.transition_to(Preparing())
+    def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
+        return
 
     def on_tick(self, tick) -> None:
+        # create OrderCalculator
+        # create BoxConfig
+
         return
 
 
 class Processing(TraderState):
-    clock: int
-    order_errors_need_action = [OrderErrorStatus.PLACING, OrderErrorStatus.CLOSING]
+    def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
+        if signal == TraderSignal.SHUT_DOWN:
+            self.trader_manager.box_manager.on_signal(BoxSignal.CLOSE)
+            self.trader_manager.should_stop = True
 
-    def is_done(self) -> bool:
-        return False
+        if signal == TraderSignal.RUN:
+            self.trader_manager.box_manager.on_signal(BoxSignal.RESUME)
 
-    def on_signal(self, signal: BoxSignal) -> None:
-        if signal == BoxSignal.CLOSE and self.box_manager.order_manager is not None:
-            self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
+        return
 
     def on_tick(self, tick) -> None:
-        clock = tick[0]
-        order_is_done = self.box_manager.order_manager.is_done()
+        box_is_done = self.trader_manager.box_manager.is_done()
 
-        if order_is_done:
-            order = self.box_manager.order_manager.get_prototype()
-            self.box_manager.orders.append(order)
-            self.box_manager.order_manager = None
-            self.__handle_order(order)
-
+        if box_is_done:
+            self.trader_manager.transition_to(Finished())
         else:
-            self.box_manager.order_manager.on_tick(tick)
-
-    def __handle_order(self, order: OrderInfo) -> None:
-        order_status = order.status
-        if order.error_status in self.order_errors_need_action:
-            self.__error_action(order.error_status)
-        elif order_status == OrderStatus.TP:
-            self.__tp_action()
-        elif order_status == OrderStatus.SL:
-            self.__sl_action()
-        elif order_status == OrderStatus.CLOSED:
-            self.__close_action()
-
-    def __tp_action(self):
-        self.box_manager.ended_at = format_gmt_time(self.clock)
-        self.box_manager.transition_to(Finished())
-
-    def __sl_action(self):
-        # check situation for pause
-        if self.box_manager.active_order_number in self.box_manager.pause_times:
-            self.box_manager.transition_to(Paused())
-        else:
-            self.box_manager.transition_to(Preparing())
-
-    def __close_action(self):
-        self.box_manager.ended_at = format_gmt_time(self.clock)
-        self.box_manager.transition_to(Finished())
-
-    def __error_action(self, error_code: OrderErrorStatus):
-        if error_code == OrderErrorStatus.PLACING:
-            self.box_manager.ended_at = format_gmt_time(self.clock)
-            self.box_manager.transition_to(Finished())
-        elif error_code == OrderErrorStatus.CLOSING:
-            self.box_manager.ended_at = format_gmt_time(self.clock)
-            self.box_manager.transition_to(Finished())
+            self.trader_manager.box_manager.on_tick(tick)
 
 
 class Finished(TraderState):
+    is_finished = False
 
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
         return
 
-    def is_done(self) -> bool:
-        return True
+    def on_tick(self, tick) -> None:
+        if self.is_finished:
+            if self.trader_manager.should_stop:
+                self.trader_manager.transition_to(Leave())
+            else:
+                self.trader_manager.transition_to(Listening())
+
+        else:
+            # get box data
+            # persist box
+            # reset order config
+            self.trader_manager.box_manager = None
+            self.is_finished = True
+
+
+class Leave(TraderState):
+    def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
+        if signal == TraderSignal.ON:
+            self.trader_manager.should_stop = False
+            self.trader_manager.transition_to(Listening())
+
+        return
 
     def on_tick(self, tick) -> None:
         return

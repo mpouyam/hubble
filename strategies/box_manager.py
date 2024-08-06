@@ -2,7 +2,8 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Dict, TYPE_CHECKING, Optional, Tuple, List, Callable
+from typing import Dict, TYPE_CHECKING, Optional, Tuple, List
+
 from trading_platform import Platform
 from utils import format_gmt_time
 from .order_manager import OrderStatus, OrderDirection, OrderDetail, OrderManager, OrderInfo, OrderSignal, \
@@ -113,8 +114,8 @@ class Preparing(BoxState):
         self.clock = tick[0]
 
         if self.box_manager.order_manager is None:
-            order_number = self.box_manager.next_order_number
-            order_detail = self.box_manager.order_calculator.get_config(order_number)
+            active_order_number = self.box_manager.next_order_number
+            order_detail = self.box_manager.order_calculator.get_config(active_order_number)
             order_manager = OrderManager(self.box_manager.provider, self.box_manager.logger, order_detail)
             self.box_manager.order_manager = order_manager
             self.__moving_order_number()
