@@ -2,26 +2,20 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Dict, TYPE_CHECKING, Optional, Tuple, List
+from typing import Dict, TYPE_CHECKING, Optional, Tuple, List, TypedDict
 
 from trading_platform import Platform
 from utils import format_gmt_time
-from .order_manager import OrderStatus, OrderDirection, OrderDetail, OrderManager, OrderInfo, OrderSignal, \
-    OrderErrorStatus
-
-
-class BoxErrorStatus(StrEnum):
-    STATE_MANAGER_ERROR = "STATE_MANAGER_ERROR"
-
-
-class BoxStatus(StrEnum):
-    ACTIVE = "ACTIVE"
-    FINISHED = "FINISHED"
+from .order_manager import OrderStatus, OrderDirection, OrderRecipes, OrderManager, Order, OrderSignal, OrderErrorStatus
 
 
 class BoxSignal(StrEnum):
     RESUME = "RESUME"
     CLOSE = "CLOSE"
+
+
+class BoxSignalData(TypedDict):
+    direction: OrderDirection
 
 
 if TYPE_CHECKING:
@@ -50,7 +44,7 @@ class BoxState(ABC):
         pass
 
     @abstractmethod
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         pass
 
     @abstractmethod
@@ -74,7 +68,7 @@ class BoxManager:
         self.balance = account["balance"]
 
         self.id = uuid.uuid4()
-        self.orders: list[OrderInfo] = []
+        self.orders: list[Order] = []
         self.active_order_number = 0
         self.next_order_number = 1
         self.started_at = None
@@ -86,11 +80,11 @@ class BoxManager:
         self._state = state
         self._state.box_manager = self
 
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal not in BoxSignal:
             return
         else:
-            self._state.on_signal(signal)
+            self._state.on_signal(signal, data)
 
     # Manage state
     def on_tick(self, tick) -> None:
@@ -108,16 +102,18 @@ class BoxManager:
 
 
 class Preparing(BoxState):
-    clock: int
 
     def on_tick(self, tick) -> None:
-        self.clock = tick[0]
 
         if self.box_manager.order_manager is None:
+            self.box_manager.started_at = format_gmt_time(tick[0])
+
             active_order_number = self.box_manager.next_order_number
-            order_detail = self.box_manager.order_calculator.get_config(active_order_number)
-            order_manager = OrderManager(self.box_manager.provider, self.box_manager.logger, order_detail)
+            order_recipes = self.box_manager.order_calculator.get_config(active_order_number)
+            order_manager = OrderManager(self.box_manager.provider, self.box_manager.logger, order_recipes)
+
             self.box_manager.order_manager = order_manager
+
             self.__moving_order_number()
 
         self.box_manager.transition_to(Processing())
@@ -125,12 +121,11 @@ class Preparing(BoxState):
     def is_done(self) -> bool:
         return False
 
-    def on_signal(self, signal: BoxSignal):
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal == BoxSignal.CLOSE and self.box_manager.order_manager is not None:
             self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
 
     def __moving_order_number(self) -> None:
-        self.box_manager.started_at = format_gmt_time(self.clock)
         self.box_manager.active_order_number = self.box_manager.next_order_number
         self.box_manager.next_order_number += 1
 
@@ -142,12 +137,11 @@ class Processing(BoxState):
     def is_done(self) -> bool:
         return False
 
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal == BoxSignal.CLOSE and self.box_manager.order_manager is not None:
             self.box_manager.order_manager.on_signal(OrderSignal.CLOSE)
 
     def on_tick(self, tick) -> None:
-        clock = tick[0]
         order_is_done = self.box_manager.order_manager.is_done()
 
         if order_is_done:
@@ -159,7 +153,7 @@ class Processing(BoxState):
         else:
             self.box_manager.order_manager.on_tick(tick)
 
-    def __handle_order(self, order: OrderInfo) -> None:
+    def __handle_order(self, order: Order) -> None:
         order_status = order.status
         if order.error_status in self.order_errors_need_action:
             self.__error_action(order.error_status)
@@ -171,7 +165,6 @@ class Processing(BoxState):
             self.__close_action()
 
     def __tp_action(self) -> None:
-        self.box_manager.ended_at = format_gmt_time(self.clock)
         self.box_manager.transition_to(Finished())
 
     def __sl_action(self) -> None:
@@ -182,24 +175,22 @@ class Processing(BoxState):
             self.box_manager.transition_to(Preparing())
 
     def __close_action(self) -> None:
-        self.box_manager.ended_at = format_gmt_time(self.clock)
         self.box_manager.transition_to(Finished())
 
     def __error_action(self, error_code: OrderErrorStatus) -> None:
         if error_code == OrderErrorStatus.PLACING:
-            self.box_manager.ended_at = format_gmt_time(self.clock)
             self.box_manager.transition_to(Finished())
         elif error_code == OrderErrorStatus.CLOSING:
-            self.box_manager.ended_at = format_gmt_time(self.clock)
             self.box_manager.transition_to(Finished())
 
 
 class Paused(BoxState):
 
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal == BoxSignal.CLOSE:
             self.box_manager.transition_to(Finished())
         elif signal != BoxSignal.RESUME:
+            self.box_manager.order_calculator.set_first_direction(data.get("direction"))
             self.box_manager.transition_to(Preparing())
 
     def on_tick(self, tick) -> None:
@@ -212,13 +203,18 @@ class Paused(BoxState):
 class Finished(BoxState):
     finished = False
 
-    def on_signal(self, signal: BoxSignal) -> None:
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         return
 
     def is_done(self) -> bool:
-        return False
+        return self.finished
 
     def on_tick(self, tick) -> None:
+        if not self.finished:
+            self.box_manager.ended_at = format_gmt_time(tick[0])
+            account = self.box_manager.provider.account_details()
+            self.box_manager.balance = account["balance"] - self.box_manager.balance
+            self.finished = True
         return
 
 
@@ -252,12 +248,12 @@ class OrderCalculator:
     def set_first_direction(self, direction: OrderDirection) -> None:
         self.first_direction = direction
 
-    def get_config(self, orderNumber: int) -> OrderDetail:
+    def get_config(self, orderNumber: int) -> OrderRecipes:
         direction = self.__calculate_direction(orderNumber)
         volume = self.__calculate_vol(orderNumber)
         sl, tp = self.__calculate_sl_tp(orderNumber)
 
-        return OrderDetail(
+        return OrderRecipes(
             symbol=self.symbol,
             unit=self.point,
             direction=direction,

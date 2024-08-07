@@ -2,15 +2,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, time
 from enum import StrEnum
-from typing import Dict, Tuple, Union, TypedDict
-
-import pytz
+from typing import Dict, Tuple, Union, TypedDict, Optional
 
 from repository import BoxRepositoryInterface
 from trading_platform import Platform
 from utils import format_gmt_time
 from utils import is_market_closed
-from .box_manager import BoxManager, BoxSignal, BoxConfig
+from .box_manager import BoxManager, BoxSignal, BoxConfig, BoxSignalData, OrderCalculator, OrderConfig
 from .order_manager import OrderDirection
 
 
@@ -55,9 +53,8 @@ class Config(TypedDict):
 
 
 @dataclass
-class TraderSignalData(TypedDict):
-    symbol: str
-    direction: OrderDirection
+class TraderSignalData(BoxSignalData):
+    pass
 
 
 class Trader(BoxManager):
@@ -153,10 +150,6 @@ class Trader(BoxManager):
     def get_status(self) -> Status:
         return self.status
 
-    def change_config(self, config) -> None:
-        data_dict = {key: value.__dict__ for key, value in config.items()}
-        self.next_box_config = data_dict
-
     def get_all_status(self):
         box_status = self._get_box_state()
         return f'{self.status} : {box_status}'
@@ -197,9 +190,6 @@ class Trader(BoxManager):
 
         # Check if the timestamp_time is within working hours
         return start_time <= timestamp_time <= end_time
-
-    def _set_status(self, status: Status) -> None:
-        self.status = status
 
     def _save_data(self) -> None:
 
@@ -302,15 +292,28 @@ class TraderState(ABC):
         pass
 
 
+class TraderConfig(BoxConfig):
+    pause_times: int
+    max_order: int
+
+
 class TraderManager:
     _state: TraderState = None
 
-    def __init__(self, provider: Platform, logger, traderConfig: BoxConfig, timeManager) -> None:
+    def __init__(self,
+                 provider: Platform,
+                 logger,
+                 timeManager,
+                 configManager: ConfigCalculator
+                 ) -> None:
+
         self.should_stop = False
         self.provider = provider
         self.logger = logger
-        self.box_manager = None
         self.time_manager = timeManager
+        self.config_manager = configManager
+
+        self.box_manager = None
         self.transition_to(Listening())
 
     def transition_to(self, state: TraderState) -> None:
@@ -341,6 +344,7 @@ class Listening(TraderState):
             should_work = self._trader_manager.time_manager.should_work(self.clock)
             if should_work:
                 if self.trader_manager.box_manager is None:
+                    self.trader_manager.config_manager.set_direction(data.get("direction"))
                     self.trader_manager.transition_to(Preparing())
                 else:
                     self.trader_manager.transition_to(Processing())
@@ -354,8 +358,13 @@ class Preparing(TraderState):
         return
 
     def on_tick(self, tick) -> None:
-        # create OrderCalculator
-        # create BoxConfig
+        box_recipes, orders_recipes = self.trader_manager.config_manager.get_config()
+        order_calculator = OrderCalculator(orders_recipes)
+        self.trader_manager.box_manager = BoxManager(
+            self.trader_manager.provider, self.trader_manager.logger,
+            box_recipes, order_calculator
+        )
+        self.trader_manager.transition_to(Processing())
 
         return
 
@@ -411,3 +420,54 @@ class Leave(TraderState):
 
     def on_tick(self, tick) -> None:
         return
+
+
+class ConfigCalculator:
+    def __init__(self, config_dict: dict = None):
+        self.symbol: str = config_dict["symbol"]
+        self.point: float = config_dict["point"]
+        self.sl_limit: float = config_dict["sl_limit"]
+        self.tp_limit: float = config_dict["tp_limit"]
+        self.static_vol: Optional[Dict[int, float]] = config_dict["static_vol"]
+        self.static_tp: Optional[Dict[int, float]] = config_dict["static_tp"]
+        self.static_sl: Optional[Dict[int, float]] = config_dict["static_sl"]
+        self.growth_factor: float = config_dict["growth_factor"]
+
+        self.pause_times: int = config_dict["pause_times"]
+        self.max_order: int = config_dict["max_order"]
+
+        self.first_direction: Optional[OrderDirection] = None
+
+    def set_direction(self, direction: OrderDirection) -> OrderDirection:
+        self.first_direction = direction
+        return direction
+
+    def get_config(self) -> Tuple[BoxConfig, OrderConfig]:
+        if self.first_direction is None:
+            raise ValueError("First direction is not defined")
+
+        box_recipes = BoxConfig(
+            pause_times=self.pause_times,
+            max_order=self.max_order
+        )
+
+        orders_recipes = OrderConfig(
+            symbol=self.symbol,
+            point=self.point,
+            first_direction=self.first_direction,
+            sl_limit=self.sl_limit,
+            tp_limit=self.tp_limit,
+            static_vol=self.static_vol,
+            static_tp=self.static_tp,
+            static_sl=self.static_sl,
+            growth_factor=self.growth_factor
+        )
+
+        return box_recipes, orders_recipes
+
+    def set_symbol(self, symbol) -> str:
+        self.symbol = symbol
+        return symbol
+
+    def get_symbol(self) -> str:
+        return self.symbol

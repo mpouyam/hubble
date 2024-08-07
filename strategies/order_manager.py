@@ -1,10 +1,12 @@
 from __future__ import annotations
+
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional
+
 from trading_platform import Platform
 from utils import format_gmt_time
-from abc import ABC, abstractmethod
 
 
 class OrderSignal(StrEnum):
@@ -31,7 +33,7 @@ class OrderDirection(StrEnum):
 
 
 @dataclass
-class OrderDetail:
+class OrderRecipes:
     direction: OrderDirection
     symbol: str
     unit: float
@@ -41,7 +43,7 @@ class OrderDetail:
 
 
 @dataclass
-class OrderInfo:
+class Order:
     symbol: str
     pip_unit: float
     status: OrderStatus
@@ -62,16 +64,16 @@ class OrderInfo:
 class OrderManager:
     _state: OrderState = None
 
-    def __init__(self, provider: Platform, logger, orderDetail: OrderDetail):
+    def __init__(self, provider: Platform, logger, orderRecipes: OrderRecipes):
         self.provider = provider
         self.logger = logger
 
-        self.symbol = orderDetail.symbol
-        self.pip_unit = orderDetail.unit
-        self.direction = orderDetail.direction
-        self.volume = orderDetail.volume
-        self.tp_limit = orderDetail.tp
-        self.sl_limit = orderDetail.sl
+        self.symbol = orderRecipes.symbol
+        self.pip_unit = orderRecipes.unit
+        self.direction = orderRecipes.direction
+        self.volume = orderRecipes.volume
+        self.tp_limit = orderRecipes.tp
+        self.sl_limit = orderRecipes.sl
 
         self.ticket = None
         self.price = None
@@ -101,9 +103,9 @@ class OrderManager:
     def is_done(self) -> bool:
         return self._state.is_done()
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         if self._state is None:
-            return OrderInfo(
+            return Order(
                 symbol=self.symbol,
                 pip_unit=self.pip_unit,
                 ticket=self.ticket,
@@ -144,7 +146,7 @@ class OrderState(ABC):
         pass
 
     @abstractmethod
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         pass
 
     @abstractmethod
@@ -154,9 +156,9 @@ class OrderState(ABC):
 
 class Placing(OrderState):
     try_count = 1
-    _order: OrderInfo
+    _order: Order
 
-    def __init__(self, order: OrderInfo):
+    def __init__(self, order: Order):
         self._order = replace(order)
 
     def is_done(self) -> bool:
@@ -198,7 +200,7 @@ class Placing(OrderState):
                 self._order.error_status = OrderErrorStatus.PLACING
                 self.order_manager.transition_to(Final(self._order))
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         return self._order
 
     def __calculate_limit_prices(self, price: float) -> Tuple[float, float]:
@@ -253,9 +255,9 @@ class Placing(OrderState):
 
 class Modifying(OrderState):
     try_count = 1
-    _order: OrderInfo
+    _order: Order
 
-    def __init__(self, order: OrderInfo):
+    def __init__(self, order: Order):
         self._order = replace(order)
 
     def is_done(self) -> bool:
@@ -287,7 +289,7 @@ class Modifying(OrderState):
                 self._order.error_status = OrderErrorStatus.MODIFYING
                 self.order_manager.transition_to(Processing(self._order))
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         return self._order
 
     def __calculate_limit_prices(self) -> Tuple[float, float]:
@@ -318,9 +320,9 @@ class Modifying(OrderState):
 
 
 class Processing(OrderState):
-    _order: OrderInfo
+    _order: Order
 
-    def __init__(self, order: OrderInfo):
+    def __init__(self, order: Order):
         self._order = replace(order)
 
     def is_done(self) -> bool:
@@ -345,7 +347,7 @@ class Processing(OrderState):
 
         return
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         return self._order
 
     # Process Orders
@@ -388,9 +390,9 @@ class Processing(OrderState):
 
 class Closing(OrderState):
     try_count = 1
-    _order: OrderInfo
+    _order: Order
 
-    def __init__(self, order: OrderInfo):
+    def __init__(self, order: Order):
         self._order = replace(order)
 
     def is_done(self) -> bool:
@@ -422,7 +424,7 @@ class Closing(OrderState):
     def on_signal(self, signal: OrderSignal) -> None:
         return
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         return self._order
 
     def __close_order(self) -> None:
@@ -441,13 +443,13 @@ class Closing(OrderState):
 
 
 class Final(OrderState):
-    _order: OrderInfo
+    _order: Order
     finished = False
 
-    def __init__(self, order: OrderInfo):
+    def __init__(self, order: Order):
         self._order = replace(order)
 
-    def get_prototype(self) -> OrderInfo:
+    def get_prototype(self) -> Order:
         return self._order
 
     def on_signal(self, signal: OrderSignal) -> None:
