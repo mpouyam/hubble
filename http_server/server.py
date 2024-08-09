@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from strategies import Trader, Signal
+from strategy import Trader, Signal
 from backtest import back_test
-from strategies import Config, OrdersConfig, TraderConfig
+from strategy import Config, OrdersConfig, TraderConfig
 import uvicorn
 import os
 from typing import Optional

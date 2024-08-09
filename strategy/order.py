@@ -1,64 +1,9 @@
-from __future__ import annotations
+from dataclasses import replace
+from typing import Tuple
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, replace
-from enum import StrEnum
-from typing import Tuple, Optional
-
-from trading_platform import Platform
+from platform import Platform
+from types import OrderRecipes, OrderErrorStatus, OrderStatus, OrderSignal, Order, OrderDirection, OrderState
 from utils import format_gmt_time
-
-
-class OrderSignal(StrEnum):
-    CLOSE = "CLOSE"
-
-
-class OrderStatus(StrEnum):
-    SL = "SL"
-    TP = "TP"
-    CLOSED = "CLOSED"
-    NOTHING = "NOTHING"
-
-
-class OrderErrorStatus(StrEnum):
-    NONE = "NONE"
-    PLACING = "PLACING"
-    MODIFYING = "MODIFYING"
-    CLOSING = "CLOSING"
-
-
-class OrderDirection(StrEnum):
-    BUY = "BUY"
-    SELL = "SELL"
-
-
-@dataclass
-class OrderRecipes:
-    direction: OrderDirection
-    symbol: str
-    unit: float
-    volume: float
-    sl: float
-    tp: float
-
-
-@dataclass
-class Order:
-    symbol: str
-    pip_unit: float
-    status: OrderStatus
-    direction: OrderDirection
-    volume: float
-    tp_limit: float
-    sl_limit: float
-    ticket: Optional[int]
-    price: Optional[float]
-    tp_price: Optional[float]
-    sl_price: Optional[float]
-    started_at: Optional[str]
-    ended_at: Optional[str]
-    error: Optional[str]
-    error_status: OrderErrorStatus
 
 
 class OrderManager:
@@ -124,34 +69,6 @@ class OrderManager:
             )
         else:
             return self._state.get_prototype()
-
-
-class OrderState(ABC):
-    _order_manager: OrderManager
-
-    @property
-    def order_manager(self) -> OrderManager:
-        return self._order_manager
-
-    @order_manager.setter
-    def order_manager(self, order_manager: OrderManager) -> None:
-        self._order_manager = order_manager
-
-    @abstractmethod
-    def on_tick(self, tick) -> None:
-        pass
-
-    @abstractmethod
-    def on_signal(self, signal: OrderSignal) -> None:
-        pass
-
-    @abstractmethod
-    def get_prototype(self) -> Order:
-        pass
-
-    @abstractmethod
-    def is_done(self) -> bool:
-        pass
 
 
 class Placing(OrderState):

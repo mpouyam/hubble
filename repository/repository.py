@@ -4,11 +4,12 @@ import json
 from enum import Enum
 from uuid import UUID
 
+
 class BoxRepositoryInterface(ABC):
     @abstractmethod
     def save_box_data(self, box_data: Dict[str, Any]) -> None:
         pass
- 
+
     # @abstractmethod
     # def load_box_data(self) -> Dict[str, Any]:
     #     pass
@@ -26,7 +27,6 @@ class JSONBoxRepository(BoxRepositoryInterface):
                     data = []
             except json.JSONDecodeError:
                 data = []  # Initialize data as an empty list if file is empty or not in JSON format
-
 
             data.append({**box_data})  # Append new box data object to the list
             f.seek(0)  # Move cursor to the beginning of the file

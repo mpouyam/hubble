@@ -1,12 +1,8 @@
-from strategies import Trader
 from repository import BoxRepositoryInterface
+from strategy import TraderManager
 
 
-class TraderMock(Trader):
-    def __init__(self , provider , logger , repository:BoxRepositoryInterface , config) -> None:
-        super().__init__(provider , logger , repository, config)
-        self.handle_signal("ON")
-
-    def _tp_action(self):
-        super()._tp_action()
+class TraderMock(TraderManager):
+    def __init__(self, provider, logger, repository: BoxRepositoryInterface, config) -> None:
+        super().__init__(provider, logger, repository, config)
         self.handle_signal("ON")

@@ -1,67 +1,22 @@
 import uuid
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import StrEnum
-from typing import Dict, TYPE_CHECKING, Optional, Tuple, List, TypedDict
-
-from trading_platform import Platform
+from typing import List
+from configs import BoxConfig, OrderConfigCalculator
+from strategy import OrderManager
+from platform import Platform
+from types import BoxState, BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
 from utils import format_gmt_time
-from .order_manager import OrderStatus, OrderDirection, OrderRecipes, OrderManager, Order, OrderSignal, OrderErrorStatus
-
-
-class BoxSignal(StrEnum):
-    RESUME = "RESUME"
-    CLOSE = "CLOSE"
-
-
-class BoxSignalData(TypedDict):
-    direction: OrderDirection
-
-
-if TYPE_CHECKING:
-    from box_manager import BoxManager, OrderCalculator  # Import BoxManager only for type checking
-
-
-@dataclass
-class BoxConfig:
-    pause_times: int
-    max_order: int
-
-
-class BoxState(ABC):
-    _box_manager: 'BoxManager' = None
-
-    @property
-    def box_manager(self) -> 'BoxManager':
-        return self._box_manager
-
-    @box_manager.setter
-    def box_manager(self, box_manager: 'BoxManager') -> None:
-        self._box_manager = box_manager
-
-    @abstractmethod
-    def on_tick(self, tick) -> None:
-        pass
-
-    @abstractmethod
-    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
-        pass
-
-    @abstractmethod
-    def is_done(self) -> bool:
-        pass
 
 
 class BoxManager:
     _state: BoxState = None
 
-    def __init__(self, provider: Platform, logger, boxConfig: BoxConfig, orderCalculator: OrderCalculator) -> None:
+    def __init__(self, provider: Platform, logger, config: BoxConfig, orderCalculator: OrderConfigCalculator) -> None:
 
         self.provider = provider
         self.logger = logger
         self.order_manager = None
         self.order_calculator = orderCalculator
-        self.box_config = boxConfig
+        self.config = config
         self.pause_times = self.__calculate_pause_times()
 
         account = self.provider.account_details()
@@ -90,9 +45,19 @@ class BoxManager:
     def on_tick(self, tick) -> None:
         self._state.on_tick(tick)
 
+    def get_data(self):
+        return {
+            "id": str(self.id),
+            "last_order": self.active_order_number,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "orders": self.orders,
+            "config": self.config,
+        }
+
     def __calculate_pause_times(self) -> List[int]:
-        pause_times = self.box_config.pause_times
-        max_order = self.box_config.max_order
+        pause_times = self.config.pause_times
+        max_order = self.config.max_order
         pause_numbers = []
         for n in range(max_order):
             if n % pause_times == 0 and n != 0:
@@ -216,87 +181,3 @@ class Finished(BoxState):
             self.box_manager.balance = account["balance"] - self.box_manager.balance
             self.finished = True
         return
-
-
-@dataclass
-class OrderConfig:
-    symbol: str
-    point: float
-    first_direction: OrderDirection
-    sl_limit: float
-    tp_limit: float
-    static_vol: Optional[Dict[int, float]]
-    static_tp: Optional[Dict[int, float]]
-    static_sl: Optional[Dict[int, float]]
-    growth_factor: float
-
-
-class OrderCalculator:
-
-    def __init__(self, orderConfig: OrderConfig) -> None:
-
-        self.symbol = orderConfig.symbol
-        self.point = orderConfig.point
-        self.first_direction = orderConfig.first_direction
-        self.sl_limit = orderConfig.sl_limit
-        self.tp_limit = orderConfig.tp_limit
-        self.static_vol = orderConfig.static_vol
-        self.static_tp = orderConfig.static_tp
-        self.static_sl = orderConfig.static_sl
-        self.growth_factor = orderConfig.growth_factor
-
-    def set_first_direction(self, direction: OrderDirection) -> None:
-        self.first_direction = direction
-
-    def get_config(self, orderNumber: int) -> OrderRecipes:
-        direction = self.__calculate_direction(orderNumber)
-        volume = self.__calculate_vol(orderNumber)
-        sl, tp = self.__calculate_sl_tp(orderNumber)
-
-        return OrderRecipes(
-            symbol=self.symbol,
-            unit=self.point,
-            direction=direction,
-            volume=volume,
-            sl=sl,
-            tp=tp
-        )
-
-    def __calculate_direction(self, orderNumber: int) -> OrderDirection:
-        direction = self.first_direction
-
-        if direction == OrderDirection.BUY:
-            return OrderDirection.BUY if orderNumber % 2 != 0 else OrderDirection.SELL
-        else:
-            return OrderDirection.SELL if orderNumber % 2 == 0 else OrderDirection.BUY
-
-    def __calculate_vol(self, orderNumber: int) -> float:
-        if self.static_vol and orderNumber in self.static_vol:
-            return self.static_vol[orderNumber]
-
-        else:
-            if self.static_vol:
-                max_key = max(self.static_vol.keys())
-                n = max_key
-                b = self.static_vol[n]
-            else:
-                n = 0
-                b = 0.1
-
-            g = self.growth_factor
-            p = orderNumber - n
-            v = round((pow(g, p) * b), 2)
-
-            return v
-
-    def __calculate_sl_tp(self, orderNumber: int) -> Tuple[float, float]:
-        sl = self.sl_limit
-        tp = self.tp_limit
-
-        if self.static_sl and orderNumber in self.static_sl:
-            sl = self.static_sl[orderNumber]
-
-        if self.static_tp and orderNumber in self.static_tp:
-            tp = self.static_tp[orderNumber]
-
-        return tp, sl

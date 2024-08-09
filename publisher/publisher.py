@@ -1,5 +1,5 @@
 import time
-from trading_platform import Platform
+from platform import Platform
 import threading
 import math
 
