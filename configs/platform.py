@@ -1,0 +1,52 @@
+class PlatformConfig:
+    def __init__(self, config_dict: dict = None) -> None:
+        if config_dict is not None:
+            self.path = config_dict.get('path')
+            self.server = config_dict.get('server')
+            self.login = config_dict.get('login')
+            self.password = config_dict.get('password')
+            self.symbol = config_dict.get('symbol')
+
+    def set_path(self, path):
+        self.path = path
+        return self
+
+    def get_path(self):
+        return self.path
+
+    def set_server(self, server):
+        self.server = server
+        return self
+
+    def get_server(self):
+        return self.server
+
+    def set_login(self, login):
+        self.login = login
+        return self
+
+    def get_login(self):
+        return self.login
+
+    def set_password(self, password):
+        self.password = password
+        return self
+
+    def get_password(self):
+        return self.password
+
+    def set_symbol(self, symbol):
+        self.symbol = symbol
+        return self
+
+    def get_symbol(self):
+        return self.symbol
+
+    def get_config(self) -> dict:
+        return {
+            'path': self.get_path(),
+            'server': self.get_server(),
+            'login': self.get_login(),
+            'password': self.get_password(),
+            'symbol': self.get_symbol()
+        }
