@@ -94,7 +94,7 @@ class Publisher:
         with self.state_lock:
             state = self._state
         while state == "running":
-            tick = self.platform.get_symbol_info(symbol)
+            tick = self.platform.get_symbol_info_tick(symbol)
             with self.ticks_lock:
                 self.add_to_ticks(tick)
             time.sleep(period)

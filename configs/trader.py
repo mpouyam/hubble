@@ -5,7 +5,7 @@ from types import OrderDirection
 
 
 class TraderConfigCalculator:
-    def __init__(self, config_dict: dict = None):
+    def __init__(self, config_dict: dict):
         self.symbol: str = config_dict["symbol"]
         self.point: float = config_dict["point"]
         self.sl_limit: float = config_dict["sl_limit"]

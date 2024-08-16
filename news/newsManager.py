@@ -11,10 +11,11 @@ class NewsManager:
         # self.news = []
         # self.cache = {}
 
-    def get_news(self, symbol: str, timestamp: int) -> List[int]:
+    def get_news_times(self, symbol: str, timestamp: int) -> List[float]:
         # TODO: cache news for a day , dont request every time
-        dt_object = datetime.utcfromtimestamp(timestamp)
+        # dt_object = datetime.utcfromtimestamp(timestamp)
         # date = dt_object.date()
-
-        news_list = self.news_service.get_news(dt_object)
-        return news_list
+        #
+        # news_list = self.news_service.get_news(dt_object)
+        # return news_list
+        return [4.30]

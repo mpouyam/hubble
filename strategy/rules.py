@@ -6,7 +6,7 @@ import pytz
 
 
 class Rules:
-    def __init__(self, symbol: str, news_manager: NewsManager, logger, config: RulesConfig):
+    def __init__(self, news_manager: NewsManager, logger, config: RulesConfig):
         self.logger = logger
         self.news_manager = news_manager
         self.config = config
@@ -51,7 +51,7 @@ class Rules:
         gmt_tz = pytz.timezone('GMT')
 
         # Convert self.clock (which is a timestamp) to a datetime object in GMT timezone
-        timestamp_time = datetime.fromtimestamp(timestamp, tz=gmt_tz)
+        timestamp_time = datetime.fromtimestamp(timestamp)
 
         # Get working hours for the current day, or default if not specified
         start_hour, end_hour = self.config.default_working_hours
@@ -76,7 +76,7 @@ class Rules:
     def __is_news_time(self, timestamp: int = None) -> bool:
         before_news_minutes = self.config.before_news_minute
         after_news_minutes = self.config.after_news_minute
-        news_times = self.news_manager.get_news(timestamp)
+        news_times = self.news_manager.get_news_times(timestamp)
 
         for timee in news_times:
             news_time = self.__float_to_time(timee)

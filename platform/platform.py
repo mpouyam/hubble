@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import MetaTrader5 as mt5
 import pytz
 from datetime import datetime
@@ -6,12 +8,16 @@ from configs import PlatformConfig
 
 
 class Platform:
+    instance: 'Platform'
+    platform_config: PlatformConfig
+
     def __init__(self) -> None:
         pass
 
     def get_instance(self):
         if not hasattr(self, 'instance'):
             self.instance = Platform()
+
         return self.instance
 
     def initialize(self, platform_config: PlatformConfig):
@@ -27,11 +33,22 @@ class Platform:
         else:
             raise Exception("Platform Initialization Failed!")
 
-    def get_symbol_info(self, symbol: str):
+    @staticmethod
+    def get_symbol_info_tick(symbol: str):
         tick_info = mt5.symbol_info_tick(symbol)
         return tick_info.time, tick_info.bid, tick_info.ask, tick_info.volume
 
-    def close_position(self, ticket, symbol):
+    @staticmethod
+    def get_symbol_info(symbol: str) -> Tuple[str, str, float]:
+        symbol_info = mt5.symbol_info(symbol)
+        if symbol_info is None:
+            raise Exception("Symbol Not Found!")
+
+        point = symbol_info.point * 10
+        return symbol_info.currency_base, symbol_info.currency_profit, point
+
+    @staticmethod
+    def close_position(ticket, symbol):
         result = mt5.Close(symbol, ticket=ticket)
 
         if result:
@@ -47,18 +64,8 @@ class Platform:
                 "comment": result.comment
             }
 
-    def current_price(self, symbol, buy_sell):
-        si = mt5.symbol_info_tick(symbol)
-        if buy_sell == "BUY":
-            return si.ask
-        else:
-            return si.bid
-
-    def get_symbol_pip_unit(self, symbol):
-        si = mt5.symbol_info(symbol)
-        return si.point * 10
-
-    def place_bracket_order(self, symbol, vol, buy_sell, sl_price, tp_price, price):
+    @staticmethod
+    def place_bracket_order(symbol, vol, buy_sell, sl_price, tp_price, price):
 
         direction = mt5.ORDER_TYPE_BUY if buy_sell.startswith("B") else mt5.ORDER_TYPE_SELL
 
@@ -88,7 +95,8 @@ class Platform:
                 "comment": result.comment
             }
 
-    def place_buy_order(self, symbol, vol, price, sl, tp):
+    @staticmethod
+    def place_buy_order(symbol, vol, price, sl, tp):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -118,7 +126,8 @@ class Platform:
                 "comment": result.comment
             }
 
-    def place_sell_order(self, symbol, vol, price, sl, tp):
+    @staticmethod
+    def place_sell_order(symbol, vol, price, sl, tp):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -147,7 +156,8 @@ class Platform:
                 "comment": result.comment
             }
 
-    def modify_tp_sl_order(self, ticket, sl: float = None, tp: float = None):
+    @staticmethod
+    def modify_tp_sl_order(ticket, sl: float = None, tp: float = None):
         request = {
             "action": mt5.TRADE_ACTION_SLTP,
             "position": ticket,
@@ -173,7 +183,8 @@ class Platform:
                 "code": result.retcode
             }
 
-    def place_pend_order(self, symbol, vol, buy_sell, sl, tp, cp):
+    @staticmethod
+    def place_pend_order(symbol, vol, buy_sell, sl, tp, cp):
         direction = mt5.ORDER_TYPE_BUY_STOP if buy_sell.startswith("B") else mt5.ORDER_TYPE_SELL_STOP
 
         request = {
@@ -202,14 +213,17 @@ class Platform:
                 "comment": result.comment
             }
 
-    def account_details(self):
+    def account_details():
         account_det = mt5.account_info()
-        return {"balance": account_det.balance,
-                "equity": account_det.equity,
-                "margin": account_det.margin,
-                "free margin": account_det.margin_free}
+        return {
+            "balance": account_det.balance,
+            "equity": account_det.equity,
+            "margin": account_det.margin,
+            "free margin": account_det.margin_free
+        }
 
-    def historic_data(self, startDate, endDate, symbol: str):
+    @staticmethod
+    def historic_data(startDate, endDate, symbol: str):
         timezone = pytz.timezone("Etc/UTC")
         # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
         utc_from = datetime(startDate[0], startDate[1], startDate[2], startDate[3], startDate[4], startDate[5],
