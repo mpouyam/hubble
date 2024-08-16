@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple
 
-from types import OrderDirection, OrderRecipes
+from type import OrderDirection, OrderRecipes
 
 
 @dataclass

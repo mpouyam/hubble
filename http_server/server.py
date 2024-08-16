@@ -1,12 +1,15 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from strategy import Trader, Signal
 from backtest import back_test
-from strategy import Config, OrdersConfig, TraderConfig
 import uvicorn
-import os
+from config import RulesConfig, TraderConfigCalculator
+from news import NewsManager, NewsService
+from type import TraderSignal
 from typing import Optional
-
+from strategy import TraderManager
+from dotenv import load_dotenv
+from http_server import HubbleHttpController
+import os
 
 def api_key_auth(api_key: str = Header(...)):
     if api_key != os.getenv('api_key'):
@@ -19,7 +22,7 @@ class Command(BaseModel):
 
 class HubbleHttpController():
 
-    def __init__(self, trader: Trader, port=3000):
+    def __init__(self, trader: TraderManager, port=3000):
         self.trader = trader
         self.port = port
 
@@ -32,23 +35,23 @@ class HubbleHttpController():
                 result = self.trader.get_all_status()
 
             elif command == 'TURN_OFF':
-                self.trader.handle_signal(Signal.OFF)
+                self.trader.handle_signal(TraderSignal.OFF)
                 result = self.trader.get_all_status()
 
             elif command == 'TURN_OFFF':
-                self.trader.handle_signal(Signal.OFFF)
+                self.trader.handle_signal(TraderSignal.OFFF)
                 result = self.trader.get_all_status()
 
             elif command == 'TURN_ON':
-                self.trader.handle_signal(Signal.ON)
+                self.trader.handle_signal(TraderSignal.ON)
                 result = self.trader.get_all_status()
 
             elif command == 'PAUSE':
-                self.trader.handle_signal(Signal.PAUSE)
+                self.trader.handle_signal(TraderSignal.PAUSE)
                 result = self.trader.get_all_status()
 
             elif command == 'RESUME':
-                self.trader.handle_signal(Signal.RESUME)
+                self.trader.handle_signal(TraderSignal.RESUME)
                 result = self.trader.get_all_status()
 
 
@@ -67,7 +70,7 @@ class HubbleHttpController():
             return await self.execute_command(command)
 
         @app.post("/config", dependencies=[Depends(api_key_auth)])
-        async def change_config(params: Optional[Config]):
+        async def change_config(params: Optional[TraderConfigCalculator]):
             # new_config = validate_config(params)
             self.trader.change_config(params)
             return "Done"
@@ -99,4 +102,4 @@ class HubbleHttpController():
 class BacktestParams(BaseModel):
     start_date: str
     end_date: str
-    config: Config
+    config: TraderConfigCalculator

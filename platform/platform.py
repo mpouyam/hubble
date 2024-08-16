@@ -4,7 +4,7 @@ import MetaTrader5 as mt5
 import pytz
 from datetime import datetime
 
-from configs import PlatformConfig
+from config import PlatformConfig
 
 
 class Platform:

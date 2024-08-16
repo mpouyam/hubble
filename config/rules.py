@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple, Dict, Optional
-
-from types import Symbol
+from type import Symbol
 
 
 @dataclass

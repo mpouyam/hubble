@@ -1,7 +1,9 @@
 from typing import Optional, Dict, Tuple
 
-from configs import BoxConfig, OrderConfig
-from types import OrderDirection
+from .box import BoxConfig
+from .order import OrderConfig
+
+from type import OrderDirection
 
 
 class TraderConfigCalculator:

@@ -1,9 +1,9 @@
-from configs import RulesConfig, TraderConfigCalculator
+from config import RulesConfig, TraderConfigCalculator
 from news import NewsManager, NewsService
 from platform import Platform, PlatformConfig
 from publisher import Publisher, PublisherConfig
 from strategy import TraderManager, Rules
-from types import Symbol
+from type import Symbol
 from utils import logger
 from repository import JSONBoxRepository
 import time
@@ -112,15 +112,6 @@ publisher.add_tick_listener(bean_strategy)
 
 # run publisher engine
 publisher.start()
-
-candle_range_signaller = CandleRangeSignaller(
-    os.getenv('symbol'),
-    platform,
-    lambda x: beanStrategy.handle_signal,
-    CandleRangeSignallerConfig().set_count(2)
-).start()
-
-
 
 # make main thread running
 if os.getenv("http_server"):

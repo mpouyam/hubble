@@ -1,9 +1,7 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
 
-from strategy import TraderManager
-from types import BoxSignalData
+from .box import BoxSignalData
 
 
 @dataclass
@@ -90,21 +88,3 @@ class TraderSignal(StrEnum):
     ON = "ON"
 
 
-class TraderState(ABC):
-    _trader_manager: TraderManager = None
-
-    @property
-    def trader_manager(self) -> TraderManager:
-        return self._trader_manager
-
-    @trader_manager.setter
-    def trader_manager(self, trader_manager: TraderManager) -> None:
-        self._trader_manager = trader_manager
-
-    @abstractmethod
-    def on_tick(self, tick) -> None:
-        pass
-
-    @abstractmethod
-    def on_signal(self, signal: TraderSignal, data) -> None:
-        pass

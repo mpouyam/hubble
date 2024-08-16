@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 
-from configs import RulesConfig
+from config import RulesConfig
 from news import NewsManager
 import pytz
 

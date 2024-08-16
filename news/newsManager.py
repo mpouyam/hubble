@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from news import NewsService
+from .newsService import NewsService
 
 
 class NewsManager:
