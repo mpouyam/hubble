@@ -46,6 +46,9 @@ class TraderManager:
     def on_tick(self, tick) -> None:
         self._state.on_tick(tick)
 
+    def get_status(self) -> str:
+        return "UP"
+
 
 class Listening(TraderState):
     clock: int

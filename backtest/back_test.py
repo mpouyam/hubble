@@ -1,34 +1,72 @@
 import os
 import json
 from datetime import datetime
+from typing import Tuple
+
+from configs import TraderConfigCalculator, RulesConfig
+from news import NewsService, NewsManager
 from platform import PlatformConfig
+from types import Symbol
 from .platform_mock import PlatformMock
-from .strategy_mock import TraderMock
 from .logger_mock import NullLogger
-from strategy import Config
+from strategy import TraderManager, Rules
 from repository import JSONBoxRepository
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def back_test(startDate: str, endDate: str, config: Config):
+def back_test(startDate: Tuple, endDate: Tuple, config):
     config = {key: value.__dict__ for key, value in config.items()}
     symbol = config["orders_config"]["symbol"]
 
+    """ ACCOUNT CONFIG """
+    path = os.getenv('path_to_mt')
+    login = int(os.getenv('login'))
+    password = os.getenv('password')
+    server = os.getenv('server')
+
+    """ NEWS CONFIG """
+    news_service_base_url = 'http://localhost:8000'
+
+    """ RULES CONFIG """
+    default_working_hours = config["orders_config"]["start_time"], config["orders_config"]["end_time"]
+    before_news_minute = config["orders_config"]["before_news_minute"]
+    after_news_minute = config["orders_config"]["after_news_minute"]
+
+    """ TRADE CONFIG """
+    sl_limit = config["orders_config"]["sl_limit"]
+    tp_limit = config["orders_config"]["tp_limit"]
+    static_vol = {}
+    static_tp = {
+        1: 6
+    }
+    static_sl = {}
+    growth_factor = config["orders_config"]["growth_factor"]
+    pause_times = config["orders_config"]["pause_times"]
+    max_order = config["orders_config"]["max_order"]
+
     # Initialize the platform
     platform_config = PlatformConfig({
-        'path': os.getenv('path_to_mt'),
-        'login': int(os.getenv('login')),
-        'password': os.getenv('password'),
-        'server': os.getenv('server'),
-        'symbol': symbol,
+        'path': path,
+        'login': login,
+        'password': password,
+        'server': server,
     })
 
     platform = PlatformMock(platform_config)
 
+    # validate symbol
+    symbol_info = platform.get_symbol_info(symbol)
+    verified_symbol = Symbol(
+        name=symbol,
+        point=symbol_info[2],
+        quote=symbol_info[1],
+        base=symbol_info[0]
+    )
+
     # Initialize the logger
-    Beanlogger = NullLogger('bean')
+    logger = NullLogger('bean')
 
     # Construct the output file name
     output_folder = "backtest_result"
@@ -44,15 +82,40 @@ def back_test(startDate: str, endDate: str, config: Config):
             pass  # Create an empty file if it doesn't exist
 
     # Initialize the logger
-    BeanRepository = JSONBoxRepository(output_file_path)
+    repo = JSONBoxRepository(output_file_path)
 
     # Initialize the strategy
-    beanStrategy = TraderMock(platform, Beanlogger, BeanRepository, config)
+    news_service = NewsService(news_service_base_url, logger)
+    news_manager = NewsManager(news_service, logger)
+
+    bean_rules_config = RulesConfig(
+        symbol=verified_symbol,
+        default_working_hours=default_working_hours,
+        before_news_minute=before_news_minute,
+        after_news_minute=after_news_minute
+    )
+    bean_rules = Rules(news_manager, logger, bean_rules_config)
+
+    # Initialize the strategy
+    bean_config_calculator = TraderConfigCalculator({
+        'symbol': verified_symbol.name,
+        'point': verified_symbol.point,
+        'sl_limit': sl_limit,
+        'tp_limit': tp_limit,
+        'static_vol': static_vol,
+        'static_tp': static_tp,
+        'static_sl': static_sl,
+        'growth_factor': growth_factor,
+        'pause_times': pause_times,
+        'max_order': max_order
+    })
+
+    bean_strategy = TraderManager(platform, logger, bean_rules, repo, bean_config_calculator)
 
     hist_data = platform.historic_data(startDate, endDate, symbol)
     for tick in hist_data:
         tick = (tick[0], tick[1], tick[2], tick[3])
-        beanStrategy.on_tick(tick)
+        bean_strategy.on_tick(tick)
 
     result = analyzer(output_file_path)
     return result

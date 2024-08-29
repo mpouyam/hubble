@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from strategy import Trader, Signal
+from strategy import TraderManager
+from types import TraderSignal
 from backtest import back_test
 from strategy import Config, OrdersConfig, TraderConfig
 import uvicorn
@@ -17,9 +18,9 @@ class Command(BaseModel):
     command: str
 
 
-class HubbleHttpController():
+class HubbleHttpController:
 
-    def __init__(self, trader: Trader, port=3000):
+    def __init__(self, trader: TraderManager, port=3000):
         self.trader = trader
         self.port = port
 
@@ -29,28 +30,11 @@ class HubbleHttpController():
         result = None
         try:
             if command == 'GET_STATUS':
-                result = self.trader.get_all_status()
+                result = self.trader.get_status()
 
-            elif command == 'TURN_OFF':
-                self.trader.handle_signal(Signal.OFF)
-                result = self.trader.get_all_status()
-
-            elif command == 'TURN_OFFF':
-                self.trader.handle_signal(Signal.OFFF)
-                result = self.trader.get_all_status()
-
-            elif command == 'TURN_ON':
-                self.trader.handle_signal(Signal.ON)
-                result = self.trader.get_all_status()
-
-            elif command == 'PAUSE':
-                self.trader.handle_signal(Signal.PAUSE)
-                result = self.trader.get_all_status()
-
-            elif command == 'RESUME':
-                self.trader.handle_signal(Signal.RESUME)
-                result = self.trader.get_all_status()
-
+            elif command == TraderSignal.SHUT_DOWN:
+                self.trader.on_signal(TraderSignal.SHUT_DOWN)
+                result = self.trader.get_status()
 
             else:
                 raise Exception("Unknown Command")
@@ -66,11 +50,11 @@ class HubbleHttpController():
         async def execute_command(command: Command):
             return await self.execute_command(command)
 
-        @app.post("/config", dependencies=[Depends(api_key_auth)])
-        async def change_config(params: Optional[Config]):
-            # new_config = validate_config(params)
-            self.trader.change_config(params)
-            return "Done"
+        # @app.post("/config", dependencies=[Depends(api_key_auth)])
+        # async def change_config(params: Optional[Config]):
+        #     # new_config = validate_config(params)
+        #     self.trader.change_config(params)
+        #     return "Done"
 
         @app.post("/backtest")
         async def backtest(params: BacktestParams):
