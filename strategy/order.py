@@ -1,9 +1,38 @@
 from dataclasses import replace
 from typing import Tuple
+from abc import ABC, abstractmethod
 
 from platform import Platform
 from types import OrderRecipes, OrderErrorStatus, OrderStatus, OrderSignal, Order, OrderDirection, OrderState
 from utils import format_gmt_time
+
+
+class OrderState(ABC):
+    _order_manager: 'OrderManager'
+
+    @property
+    def order_manager(self) -> 'OrderManager':
+        return self._order_manager
+
+    @order_manager.setter
+    def order_manager(self, order_manager: 'OrderManager') -> None:
+        self._order_manager = order_manager
+
+    @abstractmethod
+    def on_tick(self, tick) -> None:
+        pass
+
+    @abstractmethod
+    def on_signal(self, signal: OrderSignal) -> None:
+        pass
+
+    @abstractmethod
+    def get_prototype(self) -> Order:
+        pass
+
+    @abstractmethod
+    def is_done(self) -> bool:
+        pass
 
 
 class OrderManager:
@@ -69,6 +98,7 @@ class OrderManager:
             )
         else:
             return self._state.get_prototype()
+
 
 
 class Placing(OrderState):

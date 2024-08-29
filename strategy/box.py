@@ -1,14 +1,15 @@
 import uuid
 from typing import List
 from configs import BoxConfig, OrderConfigCalculator
-from strategy import OrderManager
+from .order import OrderManager
 from platform import Platform
 from types import BoxState, BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
 from utils import format_gmt_time
+from abc import ABC, abstractmethod
 
 
 class BoxManager:
-    _state: BoxState = None
+    _state: 'BoxState' = None
 
     def __init__(self, provider: Platform, logger, config: BoxConfig, orderCalculator: OrderConfigCalculator) -> None:
 
@@ -31,7 +32,7 @@ class BoxManager:
 
         self.transition_to(Preparing())
 
-    def transition_to(self, state: BoxState) -> None:
+    def transition_to(self, state: 'BoxState') -> None:
         self._state = state
         self._state.box_manager = self
 
@@ -65,6 +66,28 @@ class BoxManager:
 
         return pause_numbers
 
+class BoxState(ABC):
+    _box_manager: BoxManager
+
+    @property
+    def box_manager(self) -> BoxManager:
+        return self._box_manager
+
+    @box_manager.setter
+    def box_manager(self, box_manager: BoxManager) -> None:
+        self._box_manager = box_manager
+
+    @abstractmethod
+    def on_tick(self, tick) -> None:
+        pass
+
+    @abstractmethod
+    def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
+        pass
+
+    @abstractmethod
+    def is_done(self) -> bool:
+        pass
 
 class Preparing(BoxState):
 

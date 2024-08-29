@@ -3,10 +3,15 @@ from repository import BoxRepositoryInterface
 from platform import Platform
 from strategy import BoxManager, Rules
 from types import TraderState, TraderSignal, TraderSignalData, BoxSignal
+from .box import BoxManager
+from .rules import  Rules
+
+from type import TraderSignal, TraderSignalData, BoxSignal
+from abc import ABC, abstractmethod
 
 
 class TraderManager:
-    _state: TraderState = None
+    _state: 'TraderState' = None
 
     def __init__(
             self,
@@ -27,7 +32,7 @@ class TraderManager:
         self.box_manager = None
         self.transition_to(Listening())
 
-    def transition_to(self, state: TraderState) -> None:
+    def transition_to(self, state: 'TraderState') -> None:
         self.logger.warning(f"Trader Transition To:{state.__class__.__name__}")
 
         self._state = state
@@ -49,6 +54,24 @@ class TraderManager:
     def get_status(self) -> str:
         return "UP"
 
+class TraderState(ABC):
+    _trader_manager: TraderManager = None
+
+    @property
+    def trader_manager(self) -> TraderManager:
+        return self._trader_manager
+
+    @trader_manager.setter
+    def trader_manager(self, trader_manager: TraderManager) -> None:
+        self._trader_manager = trader_manager
+
+    @abstractmethod
+    def on_tick(self, tick) -> None:
+        pass
+
+    @abstractmethod
+    def on_signal(self, signal: TraderSignal, data) -> None:
+        pass
 
 class Listening(TraderState):
     clock: int
