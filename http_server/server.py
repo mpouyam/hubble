@@ -1,12 +1,10 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from strategy import TraderManager
-from types import TraderSignal
+from type import TraderSignal
 from backtest import back_test
-from strategy import Config, OrdersConfig, TraderConfig
 import uvicorn
 import os
-from typing import Optional
 
 
 def api_key_auth(api_key: str = Header(...)):
@@ -83,4 +81,4 @@ class HubbleHttpController:
 class BacktestParams(BaseModel):
     start_date: str
     end_date: str
-    config: Config
+    # config: Config

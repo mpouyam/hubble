@@ -4,7 +4,7 @@ import MetaTrader5 as mt5
 import pytz
 from datetime import datetime
 
-from configs import PlatformConfig
+from config import PlatformConfig
 
 
 class Platform:
@@ -41,6 +41,7 @@ class Platform:
     @staticmethod
     def get_symbol_info(symbol: str) -> Tuple[str, str, float]:
         symbol_info = mt5.symbol_info(symbol)
+
         if symbol_info is None:
             raise Exception("Symbol Not Found!")
 
@@ -212,7 +213,8 @@ class Platform:
                 "ticket": None,
                 "comment": result.comment
             }
-
+        
+    @staticmethod
     def account_details():
         account_det = mt5.account_info()
         return {

@@ -1,16 +1,13 @@
-from configs import TraderConfigCalculator, OrderConfigCalculator
+from config import TraderConfigCalculator, OrderConfigCalculator
 from repository import BoxRepositoryInterface
 from platform import Platform
-from strategy import BoxManager, Rules
-from types import TraderState, TraderSignal, TraderSignalData, BoxSignal
+from type import TraderSignal, TraderSignalData, BoxSignal , BoxSignalData,OrderDirection
 from .box import BoxManager
 from .rules import  Rules
-
-from type import TraderSignal, TraderSignalData, BoxSignal
 from abc import ABC, abstractmethod
+from publisher import TickListener
 
-
-class TraderManager:
+class TraderManager(TickListener):
     _state: 'TraderState' = None
 
     def __init__(
@@ -33,26 +30,31 @@ class TraderManager:
         self.transition_to(Listening())
 
     def transition_to(self, state: 'TraderState') -> None:
-        self.logger.warning(f"Trader Transition To:{state.__class__.__name__}")
+        self.logger.warning(f"TRADER Transition To: {state.__class__.__name__}")
 
         self._state = state
-        self._state.box_manager = self
+        self._state.trader_manager = self
 
     def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
 
-        if signal not in BoxSignal:
+        if signal not in TraderSignal:
             self.logger.error(f"Invalid Signal Received: {signal}")
             return
 
         else:
-            self.logger.error(f"Signal Received: {signal}")
+            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:
+        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def get_status(self) -> str:
         return "UP"
+
+    def get_symbol(self) -> str:
+        return self.config_manager.get_symbol()
+
 
 class TraderState(ABC):
     _trader_manager: TraderManager = None
@@ -73,6 +75,7 @@ class TraderState(ABC):
     def on_signal(self, signal: TraderSignal, data) -> None:
         pass
 
+
 class Listening(TraderState):
     clock: int
 
@@ -84,7 +87,7 @@ class Listening(TraderState):
             self.trader_manager.transition_to(Leave())
 
         if signal == TraderSignal.RUN:
-            should_work = self._trader_manager.time_manager.should_work(self.clock)
+            should_work = self.trader_manager.time_manager.should_work(self.clock)
             if should_work:
                 if self.trader_manager.box_manager is None:
                     self.trader_manager.config_manager.set_direction(data.get("direction"))
@@ -119,7 +122,7 @@ class Processing(TraderState):
             self.trader_manager.should_stop = True
 
         if signal == TraderSignal.RUN:
-            self.trader_manager.box_manager.on_signal(BoxSignal.RESUME)
+            self.trader_manager.box_manager.on_signal(BoxSignal.RESUME , BoxSignalData(direction=data['direction']))
 
         return
 

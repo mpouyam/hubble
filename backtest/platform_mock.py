@@ -1,4 +1,4 @@
-from configs import PlatformConfig
+from config import PlatformConfig
 from platform import Platform
 
 

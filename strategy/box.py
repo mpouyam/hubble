@@ -1,9 +1,9 @@
 import uuid
 from typing import List
-from configs import BoxConfig, OrderConfigCalculator
+from config import BoxConfig, OrderConfigCalculator
 from .order import OrderManager
 from platform import Platform
-from types import BoxState, BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
+from type import BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
 from utils import format_gmt_time
 from abc import ABC, abstractmethod
 
@@ -33,17 +33,21 @@ class BoxManager:
         self.transition_to(Preparing())
 
     def transition_to(self, state: 'BoxState') -> None:
+        self.logger.warning(f"BOXs Transition To: {state.__class__.__name__}")
         self._state = state
         self._state.box_manager = self
 
     def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal not in BoxSignal:
+            self.logger.error(f"Invalid Signal Received: {signal}")
             return
         else:
+            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
             self._state.on_signal(signal, data)
 
     # Manage state
     def on_tick(self, tick) -> None:
+        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def get_data(self):
@@ -65,6 +69,10 @@ class BoxManager:
                 pause_numbers.append(n)
 
         return pause_numbers
+
+    def is_done(self) -> bool:
+        return self._state.is_done()
+
 
 class BoxState(ABC):
     _box_manager: BoxManager

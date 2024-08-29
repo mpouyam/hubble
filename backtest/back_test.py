@@ -3,10 +3,10 @@ import json
 from datetime import datetime
 from typing import Tuple
 
-from configs import TraderConfigCalculator, RulesConfig
+from config import TraderConfigCalculator, RulesConfig
 from news import NewsService, NewsManager
 from platform import PlatformConfig
-from types import Symbol
+from type import Symbol
 from .platform_mock import PlatformMock
 from .logger_mock import NullLogger
 from strategy import TraderManager, Rules

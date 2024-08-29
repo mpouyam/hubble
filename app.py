@@ -1,17 +1,17 @@
-from configs import RulesConfig, TraderConfigCalculator
+from config import RulesConfig, TraderConfigCalculator
 from news import NewsManager, NewsService
 from platform import Platform, PlatformConfig
 from publisher import Publisher, PublisherConfig
 from strategy import TraderManager, Rules
-from types import Symbol
+from type import Symbol , TraderSignal
 from utils import logger
 from repository import JSONBoxRepository
 import time
 from dotenv import load_dotenv
 from http_server import HubbleHttpController
 import os
-
-load_dotenv()
+from type import TraderSignalData , OrderDirection
+load_dotenv(override=True)
 
 # LOAD CONFIGS :
 symbol = os.getenv('symbol')
@@ -114,8 +114,13 @@ publisher.add_tick_listener(bean_strategy)
 publisher.start()
 
 # make main thread running
-if os.getenv("http_server"):
-    HubbleHttpController(bean_strategy, port=int(os.getenv("http_port"))).run()
-else:
-    while True:
-        time.sleep(0.1)
+# if os.getenv("http_server"):
+#     HubbleHttpController(bean_strategy, port=int(os.getenv("http_port"))).run()
+# else:
+while True:
+
+    time.sleep(1)
+    bean_strategy.on_signal(
+        TraderSignal.RUN,
+        TraderSignalData(direction= OrderDirection.BUY)
+        )

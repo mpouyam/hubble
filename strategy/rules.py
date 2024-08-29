@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 
-from configs import RulesConfig
+from config import RulesConfig
 from news import NewsManager
 import pytz
 
@@ -12,13 +12,12 @@ class Rules:
         self.config = config
 
     def should_work(self, timestamp: int) -> bool:
-        should_work = False
+        should_work = True #TODO: make it false
 
         market_is_open = self.__is_market_open(timestamp)
 
         if market_is_open:
             is_working_hour = self.__is_working_hour(timestamp)
-
             if is_working_hour:
                 is_news_time = self.__is_news_time(timestamp)
                 if not is_news_time:
@@ -31,12 +30,10 @@ class Rules:
         is_close = True
 
         current_time_utc = datetime.utcfromtimestamp(timestamp)
-
         ny_timezone = pytz.timezone('America/New_York')
-        current_time = current_time_utc.replace(tzinfo=pytz.utc).astimezone(ny_timezone)
-
-        weekday = current_time.weekday()
-        hour = current_time.hour
+        current_time_ny = current_time_utc.replace(tzinfo=pytz.utc).astimezone(ny_timezone)
+        weekday = current_time_ny.weekday()
+        hour = current_time_ny.hour
 
         if weekday >= 5:  # Saturday (5) or Sunday (6)
             is_close = False
@@ -46,32 +43,21 @@ class Rules:
 
         return is_close
 
-    def __is_working_hour(self, timestamp: int = None) -> bool:
-        # Define the GMT timezone
+    def __is_working_hour(self, tick_time: int) -> bool:
         gmt_tz = pytz.timezone('GMT')
-
-        # Convert self.clock (which is a timestamp) to a datetime object in GMT timezone
-        timestamp_time = datetime.fromtimestamp(timestamp)
-
-        # Get working hours for the current day, or default if not specified
+        tick_time_gmt = datetime.fromtimestamp(tick_time , gmt_tz)
         start_hour, end_hour = self.config.default_working_hours
 
-        # Extract hour and minute from start_hour and end_hour
         start_hour_int = int(start_hour)
         start_minute = int(round((start_hour - start_hour_int) * 100))
+        
         end_hour_int = int(end_hour)
         end_minute = int(round((end_hour - end_hour_int) * 100))
 
-        # Define start and end times for the current day's working hours
-        start_time = datetime.combine(timestamp_time.date(), time(hour=start_hour_int, minute=start_minute))
-        end_time = datetime.combine(timestamp_time.date(), time(hour=end_hour_int, minute=end_minute))
+        start_time = datetime.combine(tick_time_gmt.date(), time(hour=start_hour_int, minute=start_minute),gmt_tz)
+        end_time = datetime.combine(tick_time_gmt.date(), time(hour=end_hour_int, minute=end_minute),gmt_tz)
 
-        # Localize start_time and end_time to GMT timezone
-        start_time = gmt_tz.localize(start_time)
-        end_time = gmt_tz.localize(end_time)
-
-        # Check if the timestamp_time is within working hours
-        return start_time <= timestamp_time <= end_time
+        return start_time <= tick_time_gmt <= end_time
 
     def __is_news_time(self, timestamp: int = None) -> bool:
         before_news_minutes = self.config.before_news_minute
