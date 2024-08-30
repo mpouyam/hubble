@@ -78,7 +78,7 @@ publisher = Publisher(publisher_config, platform)
 global_logger = logger('bean')
 
 # Initialize the Repository
-global_repository = JSONBoxRepository("bean_repo.json")
+global_repository = JSONBoxRepository("repo.json")
 
 # Initialize the strategy
 news_service = NewsService(news_service_base_url, global_logger)

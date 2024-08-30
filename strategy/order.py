@@ -66,12 +66,15 @@ class OrderManager:
         self._state.order_manager = self
 
     def on_tick(self, tick) -> None:
+        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def on_signal(self, signal: OrderSignal) -> None:
         if signal not in OrderSignal:
+            self.logger.error(f"Invalid Signal Received: {signal}")
             return
         else:
+            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
             self._state.on_signal(signal)
 
     def is_done(self) -> bool:

@@ -37,7 +37,7 @@ class OrderConfigCalculator:
     def get_config(self, orderNumber: int) -> OrderRecipes:
         direction = self.__calculate_direction(orderNumber)
         volume = self.__calculate_vol(orderNumber)
-        sl, tp = self.__calculate_sl_tp(orderNumber)
+        tp, sl = self.__calculate_sl_tp(orderNumber)
 
         return OrderRecipes(
             symbol=self.symbol,
