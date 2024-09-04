@@ -219,6 +219,17 @@ dnspython = ">=2.0.0"
 idna = ">=2.0.0"
 
 [[package]]
+name = "env2dict"
+version = "0.0.5"
+description = "Environment to python dictionary parser util"
+optional = false
+python-versions = "*"
+files = [
+    {file = "env2dict-0.0.5-py3-none-any.whl", hash = "sha256:4dee48a83e5af3bafaa415a0d932805fab8919c4503866a2df68bc8a86b5fdcf"},
+    {file = "env2dict-0.0.5.tar.gz", hash = "sha256:9d5aaa409c05207d67995d83693a0d07a5a479001c1101b5a8ffab58ad72801f"},
+]
+
+[[package]]
 name = "fastapi"
 version = "0.111.0"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
@@ -1287,4 +1298,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "f0d0e4758cbd4ee010dea042afd67b744cd2164311fd11b5553b020a76598d49"
+content-hash = "b857925030e4429232624a24498c2dcfc7ae91ad816ee31986fa9ebb8f38b7d1"
