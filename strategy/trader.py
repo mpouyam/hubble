@@ -77,7 +77,7 @@ class TraderState(ABC):
 
 
 class Listening(TraderState):
-    clock: int
+    clock: int = None
 
     def on_tick(self, tick) -> None:
         self.clock = tick[0]
@@ -87,6 +87,10 @@ class Listening(TraderState):
             self.trader_manager.transition_to(Leave())
 
         if signal == TraderSignal.RUN:
+            if self.clock is None:
+                return
+            
+            
             should_work = self.trader_manager.time_manager.should_work(self.clock)
             if should_work:
                 if self.trader_manager.box_manager is None:
@@ -151,7 +155,7 @@ class Finished(TraderState):
         else:
             box_data = self.trader_manager.box_manager.get_data()
             self.trader_manager.repository.save_box_data(box_data)
-            # reset order config
+            # TODO: check for chang order config
             self.trader_manager.box_manager = None
             self.is_finished = True
 

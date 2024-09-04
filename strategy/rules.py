@@ -12,36 +12,20 @@ class Rules:
         self.config = config
 
     def should_work(self, timestamp: int) -> bool:
-        should_work = True #TODO: make it false
+        # should_work = True #TODO: make it false
+        return True
+    
+        is_working_hour = self.__is_working_hour(timestamp)
+        if not is_working_hour:
+            return False
+            
+        is_news_time = self.__is_news_time(timestamp)
+        if is_news_time:
+            return False
 
-        market_is_open = self.__is_market_open(timestamp)
+        return True
 
-        if market_is_open:
-            is_working_hour = self.__is_working_hour(timestamp)
-            if is_working_hour:
-                is_news_time = self.__is_news_time(timestamp)
-                if not is_news_time:
-                    should_work = True
 
-        return should_work
-
-    @staticmethod
-    def __is_market_open(timestamp: int) -> bool:
-        is_close = True
-
-        current_time_utc = datetime.utcfromtimestamp(timestamp)
-        ny_timezone = pytz.timezone('America/New_York')
-        current_time_ny = current_time_utc.replace(tzinfo=pytz.utc).astimezone(ny_timezone)
-        weekday = current_time_ny.weekday()
-        hour = current_time_ny.hour
-
-        if weekday >= 5:  # Saturday (5) or Sunday (6)
-            is_close = False
-
-        if weekday == 6 and hour < 17:  # Sunday and before 5 p.m.
-            is_close = False
-
-        return is_close
 
     def __is_working_hour(self, tick_time: int) -> bool:
         gmt_tz = pytz.timezone('GMT')
@@ -62,7 +46,7 @@ class Rules:
     def __is_news_time(self, timestamp: int = None) -> bool:
         before_news_minutes = self.config.before_news_minute
         after_news_minutes = self.config.after_news_minute
-        news_times = self.news_manager.get_news_times(timestamp)
+        news_times = [] #self.news_manager.get_news_times(timestamp)
 
         for timee in news_times:
             news_time = self.__float_to_time(timee)

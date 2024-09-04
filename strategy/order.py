@@ -62,6 +62,7 @@ class OrderManager:
         self.transition_to(Placing(self.get_prototype()))
 
     def transition_to(self, state: OrderState) -> None:
+        self.logger.warning(f"ORDER Transition To: {state.__class__.__name__}")
         self._state = state
         self._state.order_manager = self
 
@@ -368,7 +369,6 @@ class Closing(OrderState):
                 self.order_manager.logger.error("Maximum Retries Reached")
                 self._order.error = e
                 self._order.error_status = OrderErrorStatus.CLOSING
-                self._order.ended_at = format_gmt_time(ts)
                 self.order_manager.transition_to(Final(self._order))
 
     def on_signal(self, signal: OrderSignal) -> None:
@@ -406,7 +406,9 @@ class Final(OrderState):
         return
 
     def on_tick(self, tick) -> None:
+        self._order.ended_at = format_gmt_time(tick[0])
+        self.finished = True
         return
 
     def is_done(self) -> bool:
-        return True
+        return self.finished

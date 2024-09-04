@@ -7,7 +7,6 @@ from type import BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus,
 from utils import format_gmt_time
 from abc import ABC, abstractmethod
 
-
 class BoxManager:
     _state: 'BoxState' = None
 
@@ -33,7 +32,7 @@ class BoxManager:
         self.transition_to(Preparing())
 
     def transition_to(self, state: 'BoxState') -> None:
-        self.logger.warning(f"BOXs Transition To: {state.__class__.__name__}")
+        self.logger.warning(f"BOX Transition To: {state.__class__.__name__}")
         self._state = state
         self._state.box_manager = self
 
@@ -45,7 +44,6 @@ class BoxManager:
             self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
             self._state.on_signal(signal, data)
 
-    # Manage state
     def on_tick(self, tick) -> None:
         self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
@@ -185,7 +183,7 @@ class Paused(BoxState):
     def on_signal(self, signal: BoxSignal, data: BoxSignalData) -> None:
         if signal == BoxSignal.CLOSE:
             self.box_manager.transition_to(Finished())
-        elif signal != BoxSignal.RESUME:
+        elif signal == BoxSignal.RESUME:
             self.box_manager.order_calculator.set_first_direction(data.get("direction"))
             self.box_manager.transition_to(Preparing())
 

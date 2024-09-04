@@ -119,8 +119,8 @@ publisher.start()
 # else:
 while True:
 
-    time.sleep(1)
+    time.sleep(2)
     bean_strategy.on_signal(
         TraderSignal.RUN,
         TraderSignalData(direction= OrderDirection.BUY)
-        )
+    )
