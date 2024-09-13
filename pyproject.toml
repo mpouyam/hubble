@@ -7,9 +7,8 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.9"
 colorlog = "^6.8.2"
-MetaTrader5 = "^5.0.4200"
 pytz = "^2024.1"
 numpy = "^1.26.4"
 fastapi = "^0.111.0"

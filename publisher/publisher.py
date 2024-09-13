@@ -1,4 +1,6 @@
 import time
+from abc import abstractmethod
+
 from platform import Platform
 import threading
 import math
@@ -10,9 +12,11 @@ class TickListener:
         thread.start()
         return thread
 
+    @abstractmethod
     def get_symbol(self):
         pass
 
+    @abstractmethod
     def on_tick(self, tick):
         pass
 
@@ -69,7 +73,7 @@ class Publisher:
         self.ticks_lock = threading.Lock()
         self._state = "initialized"
 
-    def add_tick_listener(self, listener):
+    def add_tick_listener(self, listener: TickListener):
         if listener.get_symbol() != self.config.get_symbol():
             raise Exception("Subscriber symbol is not consistent with engine's working symbol.")
         if len(self.tick_listeners) + 1 > self.config.get_max_subs():
