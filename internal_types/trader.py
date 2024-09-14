@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from strategy import TraderManager
-from types import BoxSignalData
+from internal_types import BoxSignalData
 
 
 @dataclass

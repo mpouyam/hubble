@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import TypedDict
 
 from strategy import BoxManager
-from types import OrderDirection
+from internal_types import OrderDirection
 
 
 class BoxSignal(StrEnum):
