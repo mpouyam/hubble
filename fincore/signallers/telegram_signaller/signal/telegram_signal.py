@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from finwave.fincore.signal import Signal, SignalType
+from fincore.signal import Signal, SignalType
 from telethon import events
 
 class TelegramSignal(Signal):

@@ -1,7 +1,7 @@
 import time
 from abc import abstractmethod
 
-from platform import Platform
+from trading_platform import Platform
 import threading
 import math
 

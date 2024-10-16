@@ -1,8 +1,8 @@
 from abc import abstractmethod
-from finwave.fincore.signaller import Signaller
+from fincore.signaller import Signaller
 import asyncio
 
-from finwave.fincore.signaller.signaller import SignallerStatus
+from fincore.signaller.signaller import SignallerStatus
 
 
 class EventLoopSignaller(Signaller):
@@ -17,7 +17,6 @@ class EventLoopSignaller(Signaller):
         self.thread.start()
         while not self.is_ready():
             pass
-        self.set_status(SignallerStatus.RUNNING)
 
 
     def get_event_loop(self)-> asyncio.AbstractEventLoop:

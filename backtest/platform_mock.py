@@ -1,5 +1,5 @@
 from config import PlatformConfig
-from platform import Platform
+from trading_platform import Platform
 
 
 class PlatformMock(Platform):

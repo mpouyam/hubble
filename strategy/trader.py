@@ -1,6 +1,6 @@
 from config import TraderConfigCalculator, OrderConfigCalculator
 from repository import BoxRepositoryInterface
-from platform import Platform
+from trading_platform import Platform
 from type import TraderSignal, TraderSignalData, BoxSignal , BoxSignalData,OrderDirection
 from .box import BoxManager
 from .rules import  Rules

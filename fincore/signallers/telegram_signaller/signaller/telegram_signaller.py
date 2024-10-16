@@ -5,10 +5,10 @@ from threading import Lock
 from typing import Self, Callable, Dict, Coroutine
 from telethon import TelegramClient, events
 
-from finwave.fincore.signaller import EventLoopSignaller
-from finwave.fincore.signaller.signaller import SignallerStatus
-from finwave.fincore.signallers.telegram_signaller.chat import ChatHandler
-from finwave.fincore.signallers.telegram_signaller.signal import TelegramSignal
+from fincore.signaller import EventLoopSignaller
+from fincore.signaller.signaller import SignallerStatus
+from fincore.signallers.telegram_signaller.chat import ChatHandler
+from fincore.signallers.telegram_signaller.signal import TelegramSignal
 
 
 class TelegramSignallerConfig:

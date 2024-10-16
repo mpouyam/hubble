@@ -3,9 +3,8 @@ import json
 from datetime import datetime
 from typing import Tuple
 
-from config import TraderConfigCalculator, RulesConfig
+from config import TraderConfigCalculator, RulesConfig, PlatformConfig
 from news import NewsService, NewsManager
-from platform import PlatformConfig
 from type import Symbol
 from .platform_mock import PlatformMock
 from .logger_mock import NullLogger
@@ -46,7 +45,7 @@ def back_test(startDate: Tuple, endDate: Tuple, config):
     pause_times = config["orders_config"]["pause_times"]
     max_order = config["orders_config"]["max_order"]
 
-    # Initialize the platform
+    # Initialize the trading_platform
     platform_config = PlatformConfig({
         'path': path,
         'login': login,

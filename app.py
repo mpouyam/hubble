@@ -1,6 +1,6 @@
 from config import RulesConfig, TraderConfigCalculator
 from news import NewsManager, NewsService
-from platform import Platform, PlatformConfig
+from trading_platform import Platform, PlatformConfig
 from publisher import Publisher, PublisherConfig
 from strategy import TraderManager, Rules
 from type import Symbol , TraderSignal
@@ -47,7 +47,7 @@ growth_factor = float(os.getenv('growth_factor'))
 pause_times = int(os.getenv('pause_times'))
 max_order = int(os.getenv('max_order'))
 
-# Initialize the platform
+# Initialize the trading_platform
 platform_config = PlatformConfig({
     'path': path,
     'login': login,

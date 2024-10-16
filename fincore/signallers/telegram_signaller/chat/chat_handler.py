@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from uuid import uuid4
 from telethon import events
-from finwave.fincore.signallers.telegram_signaller.chat import Chat
-from finwave.fincore.signallers.telegram_signaller.signal import TelegramSignalHandler
+from fincore.signallers.telegram_signaller.chat import Chat
+from fincore.signallers.telegram_signaller.signal import TelegramSignalHandler
 
 
 class ChatHandler(TelegramSignalHandler):

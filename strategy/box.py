@@ -2,7 +2,7 @@ import uuid
 from typing import List
 from config import BoxConfig, OrderConfigCalculator
 from .order import OrderManager
-from platform import Platform
+from trading_platform import Platform
 from type import BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
 from utils import format_gmt_time
 from abc import ABC, abstractmethod

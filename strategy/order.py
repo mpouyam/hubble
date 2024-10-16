@@ -2,7 +2,7 @@ from dataclasses import replace
 from typing import Tuple
 from abc import ABC, abstractmethod
 
-from platform import Platform
+from trading_platform import Platform
 from type import OrderRecipes, OrderErrorStatus, OrderStatus, OrderSignal, Order, OrderDirection
 from utils import format_gmt_time
 

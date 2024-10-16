@@ -1,8 +1,16 @@
 import threading
-from typing import Self
+import time
+from datetime import datetime
+
+import pandas as pd
+from typing import Self, Tuple, List
+
+from analyzer.signallers.sr_signaller.handler.sr_signal_handler import SRSignalHandler
+from analyzer.signallers.sr_signaller.signal import SRSignal
+from analyzer.signallers.sr_signaller.signal.sr_signal import SRSignalType
 from fincore.signal_handler import SignalHandler
 from fincore.signaller import Signaller, SignallerStatus
-from platform import Platform
+from trading_platform import Platform
 
 
 class SRSignallerConfig:
@@ -22,30 +30,31 @@ class SRSignallerConfig:
         self.candle_frame = candle_frame
         self.candle_count = candle_count
 
-    def get_inner_margin(self)-> float:
+    def get_inner_margin(self) -> float:
         return self.inner_margin
 
-    def get_outer_margin(self)-> float:
+    def get_outer_margin(self) -> float:
         return self.outer_margin
 
-    def get_min_touches(self)-> int:
+    def get_min_touches(self) -> int:
         return self.min_touches
 
-    def get_candle_frame(self)-> int:
+    def get_candle_frame(self) -> int:
         return self.candle_frame
 
-    def get_candle_count(self)-> int:
+    def get_candle_count(self) -> int:
         return self.candle_count
 
 
-class SupportResistanceSignaller(Signaller):
-
+class SRSignaller(Signaller):
 
     def subscribe_handler(self, handler: SignalHandler) -> Self:
-        pass
+        self.handlers.append(handler)
+        return self
 
     def unsubscribe_handler(self, handler: SignalHandler) -> Self:
-        pass
+        self.handlers.remove(handler)
+        return self
 
     def stop(self):
         self.set_status(SignallerStatus.STOPPED)
@@ -54,35 +63,72 @@ class SupportResistanceSignaller(Signaller):
         with self.ready_lock:
             return self.ready
 
-
     def process(self):
+        last_candle = 0
         while self.get_status() == SignallerStatus.RUNNING:
-            pass
+            candles = self.platform.get_recent_candles(
+                self.config.symbol,
+                self.config.candle_frame,
+                self.config.candle_count + 1,
+                1
+            )
+            candles = candles[['open', 'high', 'low', 'close']]
+            if hash(last_candle) != hash(candles[-1]):
+                print("Last Candle:", last_candle)
+                print("New Candle:", candles[-1])
+                last_candle = candles[-1]
+                sr_signal = self.check_sr(candles)
+                if sr_signal:
+                    print(sr_signal)
+                    for handler in self.handlers:
+                        handler.handle_signal(sr_signal)
+            time.sleep(5)
+
+
+    def check_sr(self, candles: List[Tuple]) -> SRSignal | None:
+        candles = pd.DataFrame(candles)
+        print(candles)
+        last_candle = candles.iloc[-1]
+        candles = candles[:-1]
+
+        support = candles['low'].min()
+        resistance = candles['high'].max()
+        supp_touches = len(candles[candles['low'] < support + self.config.inner_margin])
+        res_touches = len(candles[candles['high'] > resistance - self.config.inner_margin])
+        enough_touches = (supp_touches + res_touches) >= self.config.min_touches
+
+        # print("Supp Touches:", supp_touches)
+        # print("Res Touches:", res_touches)
+        # print("Is Enough:", enough_touches)
+        if not enough_touches:
+            return None
+        break_sup = last_candle['close'] < (support - self.config.outer_margin)
+        break_res = last_candle['close'] > (resistance + self.config.outer_margin)
+
+        # print("Break Sup:", break_sup)
+        # print("Break Res:", break_res)
+
+        if break_sup or break_res:
+            sr_signal = (
+                SRSignal(
+                    datetime.now(),
+                    SRSignalType.SUPPORT_BREAK if break_sup else SRSignalType.RESISTANCE_BREAK
+                )
+                    .set_min_touches(self.config.min_touches)
+                    .set_actual_touches(supp_touches + res_touches)
+                    .set_close_price(last_candle['close'])
+                    .set_support_price(support)
+                    .set_resistance_price(resistance)
+            )
+            return sr_signal
+        return None
 
     def __init__(self, config: SRSignallerConfig, platform: Platform):
         super().__init__()
         self.config = config
-        self.ready = False
         self.platform = platform
-        self.ready_lock = threading.Lock()
+        self.handlers : List[SignalHandler] = []
+        self.set_ready(True)
 
-
-    def set_ready(self, ready: bool):
-        with self.ready_lock:
-            self.ready = ready
-
-
-    def get_signaller_name(self)-> str:
+    def get_signaller_name(self) -> str:
         return 'SR Signaller'
-
-    
-
-
-        
-
-
-         
-
-    
-
-    

@@ -213,7 +213,7 @@ class Platform:
                 "ticket": None,
                 "comment": result.comment
             }
-        
+
     @staticmethod
     def account_details():
         account_det = mt5.account_info()
@@ -234,3 +234,13 @@ class Platform:
 
         hist_data = mt5.copy_ticks_range(symbol, utc_from, utc_to, mt5.COPY_TICKS_INFO)
         return hist_data
+
+    @staticmethod
+    def get_recent_candles(
+            symbol,
+            timeframe,
+            number_of_candles,
+            start_position
+    ):
+        return mt5.copy_rates_from_pos(symbol, timeframe, start_position, number_of_candles)
+

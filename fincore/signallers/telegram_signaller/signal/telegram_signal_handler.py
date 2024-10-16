@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from telethon import events
 
-from finwave.fincore.signal_handler import SignalHandler
-from finwave.fincore.signallers.telegram_signaller.signal.telegram_signal import TelegramSignal
+from fincore.signal_handler import SignalHandler
+from fincore.signallers.telegram_signaller.signal.telegram_signal import TelegramSignal
 
 
 class TelegramSignalHandler(SignalHandler):

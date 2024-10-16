@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from finwave.fincore.signal import Signal
+from fincore.signal import Signal
 
 
 class SignalHandler(ABC):

@@ -7,17 +7,15 @@ from fincore.signal import Signal, SignalType
 class SRSignalType(StrEnum):
     SUPPORT_BREAK = "SUPPORT_BREAK"
     RESISTANCE_BREAK = "RESISTANCE_BREAK"
-    SUPPORT_TOUCH = "SUPPORT_TOUCH"
-    RESISTANCE_TOUCH = "RESISTANCE_TOUCH"
 
 class SRSignal(Signal):
     def __init__(self, signal_time: datetime, sr_signal_type: SRSignalType):
         super().__init__(signal_time)
         self.sr_signal_type = sr_signal_type
-        self.price = None
+        self.close_price = None
         self.window_size = None
         self.min_touches = None
-        self.max_touches = None
+        self.actual_touches = None
         self.inner_margin = None
         self.outer_margin = None
         self.support_price = None
@@ -28,8 +26,8 @@ class SRSignal(Signal):
         return SignalType.ORDER
     
 
-    def set_price(self, price: float)-> Self:
-        self.price = price
+    def set_close_price(self, price: float)-> Self:
+        self.close_price = price
         return self
 
 
@@ -42,8 +40,8 @@ class SRSignal(Signal):
         self.min_touches = min_touches
         return self
 
-    def set_max_touches(self, max_touches: int)-> Self:
-        self.max_touches = max_touches
+    def set_actual_touches(self, actual_touches: int)-> Self:
+        self.actual_touches = actual_touches
         return self
 
 
@@ -73,8 +71,8 @@ class SRSignal(Signal):
     def get_support_price(self):
         return self.support_price
 
-    def get_price(self):
-        return self.price
+    def get_close_price(self):
+        return self.close_price
     
     def get_window_size(self):
         return self.window_size
@@ -82,11 +80,14 @@ class SRSignal(Signal):
     def get_min_touches(self):
         return self.min_touches
     
-    def get_max_touches(self):
-        return self.max_touches
+    def get_actual_touches(self):
+        return self.actual_touches
     
-    def get_margin(self):
-        return self.margin
+    def get_inner_margin(self):
+        return self.inner_margin
+
+    def get_outer_margin(self):
+        return self.outer_margin
     
     def get_sr_signal_type(self):
         return self.sr_signal_type
@@ -98,11 +99,12 @@ class SRSignal(Signal):
             f"""
                 Signal Type: {self.sr_signal_type}
                 Signal Time: {self.signal_time}
-                Price: {self.price}
+                Close Price: {self.close_price}
                 Window Size: {self.window_size}
                 Min Touches: {self.min_touches}
-                Max Touches: {self.max_touches}
-                Margin: {self.margin}
+                Actual Touches: {self.actual_touches}
+                Inner Margin: {self.inner_margin}
+                Outer Margin: {self.outer_margin}
             """
         )
 

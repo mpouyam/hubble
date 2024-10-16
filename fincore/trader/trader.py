@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Self, Set
 
-from finwave.fincore.strategy import Strategy
+from fincore.strategy import Strategy
 
 
 class Trader(ABC):

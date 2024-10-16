@@ -1,4 +1,4 @@
-from finwave.fincore.platform.platform import Platform
+from fincore.platform.platform import Platform
 
 
 

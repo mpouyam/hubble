@@ -29,12 +29,12 @@
 #     def __init__(
 #         self,
 #         symbol: str,
-#         platform: Platform,
+#         trading_platform: Platform,
 #         cb: Callable[[Signal], None],
 #         config: CandleRangeSignallerConfig
 #     ):
 #
-#         self.platform = platform
+#         self.trading_platform = trading_platform
 #         self.state = CandleRangeSignallerState.INIT
 #         self.symbol = symbol
 #         self.state_lock : Lock = Lock()
@@ -73,7 +73,7 @@
 #         last_candle_time = -1
 #         count =  self.config.get_count()
 #         while(self.get_state() == CandleRangeSignallerState.RUNNING):
-#             candles = self.platform.get_candles_from(
+#             candles = self.trading_platform.get_candles_from(
 #                 self.symbol, 1, datetime.now(), count
 #             )
 #             new_last_candle_time = candles[-1]['time']

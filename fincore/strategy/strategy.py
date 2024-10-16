@@ -3,7 +3,7 @@ from enum import Enum
 from threading import Lock
 from typing import List, Self
 
-from finwave.fincore.signaller import Signaller
+from fincore.signaller import Signaller
 
 
 class StrategyStatus(Enum):
