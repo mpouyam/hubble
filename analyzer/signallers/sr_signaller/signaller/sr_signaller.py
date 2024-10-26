@@ -6,8 +6,7 @@ import pandas as pd
 from typing import Self, Tuple, List
 
 from analyzer.signallers.sr_signaller.handler.sr_signal_handler import SRSignalHandler
-from analyzer.signallers.sr_signaller.signal import SRSignal
-from analyzer.signallers.sr_signaller.signal.sr_signal import SRSignalType
+from analyzer.signallers.sr_signaller.signal import SRSignal, SRSignalType
 from fincore.signal_handler import SignalHandler
 from fincore.signaller import Signaller, SignallerStatus
 from trading_platform import Platform
@@ -79,7 +78,6 @@ class SRSignaller(Signaller):
                 last_candle = candles[-1]
                 sr_signal = self.check_sr(candles)
                 if sr_signal:
-                    print(sr_signal)
                     for handler in self.handlers:
                         handler.handle_signal(sr_signal)
             time.sleep(5)
@@ -87,26 +85,27 @@ class SRSignaller(Signaller):
 
     def check_sr(self, candles: List[Tuple]) -> SRSignal | None:
         candles = pd.DataFrame(candles)
-        print(candles)
         last_candle = candles.iloc[-1]
         candles = candles[:-1]
 
         support = candles['low'].min()
         resistance = candles['high'].max()
+        print("Support:", support)
+        print("Resistance:", resistance)
         supp_touches = len(candles[candles['low'] < support + self.config.inner_margin])
         res_touches = len(candles[candles['high'] > resistance - self.config.inner_margin])
         enough_touches = (supp_touches + res_touches) >= self.config.min_touches
 
-        # print("Supp Touches:", supp_touches)
-        # print("Res Touches:", res_touches)
-        # print("Is Enough:", enough_touches)
+        print("Supp Touches:", supp_touches)
+        print("Res Touches:", res_touches)
+        print("Is Enough:", enough_touches)
         if not enough_touches:
             return None
         break_sup = last_candle['close'] < (support - self.config.outer_margin)
         break_res = last_candle['close'] > (resistance + self.config.outer_margin)
-
-        # print("Break Sup:", break_sup)
-        # print("Break Res:", break_res)
+        print("Last Close:", last_candle['close'])
+        print("Break Sup:", break_sup)
+        print("Break Res:", break_res)
 
         if break_sup or break_res:
             sr_signal = (
@@ -119,6 +118,9 @@ class SRSignaller(Signaller):
                     .set_close_price(last_candle['close'])
                     .set_support_price(support)
                     .set_resistance_price(resistance)
+                    .set_window_size(self.config.candle_count)
+                    .set_inner_margin(self.config.inner_margin)
+                    .set_outer_margin(self.config.outer_margin)
             )
             return sr_signal
         return None

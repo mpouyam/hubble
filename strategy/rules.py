@@ -1,32 +1,25 @@
-from datetime import datetime, time, timedelta
-
 from config import RulesConfig
-from news import NewsManager
+from news import NewsService
+from type import Symbol , ImpactLevel
+from datetime import datetime, time
 import pytz
 
-
-class Rules:
-    def __init__(self, news_manager: NewsManager, logger, config: RulesConfig):
-        self.logger = logger
-        self.news_manager = news_manager
+class TradeDecisionService:
+    def __init__(self, news_service: NewsService , config: RulesConfig):
+        self.news_service = news_service
         self.config = config
 
-    def should_work(self, timestamp: int) -> bool:
-        # should_work = True #TODO: make it false
-        return True
-    
-        is_working_hour = self.__is_working_hour(timestamp)
+    def is_safe_to_trade(self, symbol: Symbol, current_time: datetime) -> bool:
+        
+        is_working_hour = self.__is_working_hour(current_time)
         if not is_working_hour:
             return False
-            
-        is_news_time = self.__is_news_time(timestamp)
+        
+        is_news_time = self.__is_news_time(symbol ,current_time)
         if is_news_time:
             return False
-
-        return True
-
-
-
+        
+        
     def __is_working_hour(self, tick_time: int) -> bool:
         gmt_tz = pytz.timezone('GMT')
         tick_time_gmt = datetime.fromtimestamp(tick_time , gmt_tz)
@@ -43,25 +36,30 @@ class Rules:
 
         return start_time <= tick_time_gmt <= end_time
 
-    def __is_news_time(self, timestamp: int = None) -> bool:
-        before_news_minutes = self.config.before_news_minute
-        after_news_minutes = self.config.after_news_minute
-        news_times = [] #self.news_manager.get_news_times(timestamp)
+    def __is_news_time(self,symbol, timestamp: int = None) -> bool:
+        """Evaluate if it's safe to trade based on recent news events and their impacts."""
+        gmt_tz = pytz.timezone('GMT')
+        tick_time_gmt = datetime.fromtimestamp(timestamp , gmt_tz)
+        relevant_news = self.news_service.get_relevant_news(symbol, tick_time_gmt)
+        
+        # Count impact levels within a 1-hour window
+        low_impact_count = 0
+        medium_impact_count = 0
+        high_impact_count = 0
 
-        for timee in news_times:
-            news_time = self.__float_to_time(timee)
-            non_work_start = news_time - timedelta(minutes=before_news_minutes)
-            non_work_end = news_time + timedelta(minutes=after_news_minutes)
+        for news in relevant_news:
+            if news.impact is None:
+                continue
+            if news.impact == ImpactLevel.LOW:
+                low_impact_count += 1
+            elif news.impact == ImpactLevel.MEDIUM:
+                medium_impact_count += 1
+            elif news.impact == ImpactLevel.HIGH:
+                high_impact_count += 1
 
-            # Check if timestamp is within the buffer period
-            if non_work_start <= news_time <= non_work_end:
-                return False
+        # Decision logic: trade is not safe if the combined impact is too high
+        if high_impact_count >= 1 or medium_impact_count >= 2 or low_impact_count >= 3:
+            return False
 
         return True
 
-    @staticmethod
-    def __float_to_time(float_time: float) -> datetime:
-        """Convert a float time to a datetime object."""
-        hours = int(float_time)
-        minutes = int((float_time - hours) * 100)
-        return datetime(year=1, month=1, day=1, hour=hours, minute=minutes)

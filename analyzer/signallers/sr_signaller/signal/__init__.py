@@ -1,1 +1,1 @@
-from .sr_signal import SRSignal
+from .sr_signal import SRSignal, SRSignalType

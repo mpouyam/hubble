@@ -1,2 +1,1 @@
-from .newsManager import NewsManager
-from .newsService import NewsService
+from .news_service import NewsService

@@ -3,26 +3,29 @@ from repository import BoxRepositoryInterface
 from trading_platform import Platform
 from type import TraderSignal, TraderSignalData, BoxSignal , BoxSignalData,OrderDirection
 from .box import BoxManager
-from .rules import  Rules
+from .rules import  TradeDecisionService
 from abc import ABC, abstractmethod
+from analyzer.signallers.sr_signaller.signal import SRSignal, SRSignalType 
 from publisher import TickListener
 
 class TraderManager(TickListener):
     _state: 'TraderState' = None
+    clock: int = 0
 
     def __init__(
             self,
             provider: Platform,
+            symbol,
             logger,
-            workingRules: Rules,
+            trade_determiner: TradeDecisionService,
             repository: BoxRepositoryInterface,
             configManager: TraderConfigCalculator
     ):
-
+        self.symbol = symbol
         self.should_stop = False
         self.provider = provider
         self.logger = logger
-        self.time_manager = workingRules
+        self.trade_determiner = trade_determiner
         self.repository = repository
         self.config_manager = configManager
 
@@ -31,9 +34,28 @@ class TraderManager(TickListener):
 
     def transition_to(self, state: 'TraderState') -> None:
         self.logger.warning(f"TRADER Transition To: {state.__class__.__name__}")
-
         self._state = state
         self._state.trader_manager = self
+
+
+    def handle_signal(self, sr_signal: SRSignal):
+        if self.clock == 0: 
+            return
+
+        should_trade = self.trade_determiner.is_safe_to_trade(self.symbol , self.clock)
+        if not should_trade:
+            self.logger.error(f"Invalid Signal Received But Not Good For Trade")
+            return
+        
+        
+        trader_data = TraderSignalData(
+            direction= OrderDirection.BUY if sr_signal.get_sr_signal_type() == SRSignalType.RESISTANCE_BREAK else OrderDirection.SELL
+        )
+        
+        self.on_signal(
+            TraderSignal.RUN,
+            trader_data
+        )
 
     def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
 
@@ -42,10 +64,11 @@ class TraderManager(TickListener):
             return
 
         else:
-            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
+            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:
+        self.clock = tick[0]
         self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 

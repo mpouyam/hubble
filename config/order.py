@@ -51,10 +51,10 @@ class OrderConfigCalculator:
     def __calculate_direction(self, orderNumber: int) -> OrderDirection:
         direction = self.first_direction
 
-        if direction == OrderDirection.BUY:
+        if direction == OrderDirection.BUY:   
             return OrderDirection.BUY if orderNumber % 2 != 0 else OrderDirection.SELL
         else:
-            return OrderDirection.SELL if orderNumber % 2 == 0 else OrderDirection.BUY
+            return OrderDirection.SELL if orderNumber % 2 != 0 else OrderDirection.BUY
 
     def __calculate_vol(self, orderNumber: int) -> float:
         if self.static_vol and orderNumber in self.static_vol:

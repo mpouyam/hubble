@@ -41,7 +41,7 @@ class BoxManager:
             self.logger.error(f"Invalid Signal Received: {signal}")
             return
         else:
-            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
+            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:

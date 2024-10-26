@@ -1,1 +1,1 @@
-from .platform import Platform
+from .platform import Platform , PlatformConfig
