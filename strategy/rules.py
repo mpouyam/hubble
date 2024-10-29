@@ -10,15 +10,18 @@ class TradeDecisionService:
         self.config = config
 
     def is_safe_to_trade(self, symbol: Symbol, current_time: datetime) -> bool:
-        
+
         is_working_hour = self.__is_working_hour(current_time)
         if not is_working_hour:
+            self.logger.error("Signal Received But Not Good For Trade : IT'S NOT WORKING HOUR")
             return False
         
         is_news_time = self.__is_news_time(symbol ,current_time)
         if is_news_time:
+            self.logger.error("Signal Received But Not Good For Trade : IT'S NEW'S HOUR")
             return False
         
+        return True
         
     def __is_working_hour(self, tick_time: int) -> bool:
         gmt_tz = pytz.timezone('GMT')
@@ -38,6 +41,9 @@ class TradeDecisionService:
 
     def __is_news_time(self,symbol, timestamp: int = None) -> bool:
         """Evaluate if it's safe to trade based on recent news events and their impacts."""
+        
+        is_news_time = False
+
         gmt_tz = pytz.timezone('GMT')
         tick_time_gmt = datetime.fromtimestamp(timestamp , gmt_tz)
         relevant_news = self.news_service.get_relevant_news(symbol, tick_time_gmt)
@@ -58,8 +64,9 @@ class TradeDecisionService:
                 high_impact_count += 1
 
         # Decision logic: trade is not safe if the combined impact is too high
-        if high_impact_count >= 1 or medium_impact_count >= 2 or low_impact_count >= 3:
-            return False
+        if high_impact_count >= 1 or medium_impact_count >= 2:
+            is_news_time = True
+        
+        return is_news_time 
 
-        return True
 

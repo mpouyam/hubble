@@ -87,7 +87,7 @@
 
 
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 from dateutil import parser
 import pytz
 import requests
@@ -108,10 +108,12 @@ class EconomicNewsEvent:
         except ValueError:
             self.impact = None  # Handle the case where the impact string is not valid
 
-    def is_within_time_margin(self, current_time: datetime, margin_minutes: int = 30) -> bool:
+    def is_within_time_margin(self, current_time: datetime, start_margin_minutes: int = 30 , end_margin_minutes=5) -> bool:
         """Check if the current time falls within the margin window of this news event."""
-        margin_start = self.date - timedelta(minutes=margin_minutes)
-        margin_end = self.date + timedelta(minutes=margin_minutes)
+        dt2 = self.date.astimezone(timezone.utc)
+        margin_start = dt2 - timedelta(minutes=start_margin_minutes)
+        margin_end = dt2 + timedelta(minutes=end_margin_minutes)
+
         return margin_start <= current_time <= margin_end
 
 # --- News Service ---
@@ -125,18 +127,20 @@ class NewsService:
         """Load cached news data if it's still valid based on data range."""
         if os.path.exists(self.CACHE_FILE):
             with open(self.CACHE_FILE, 'r') as cache_file:
-                cached_data = json.load(cache_file)
-                
-                # Check the last date in the cached data to determine if cache is still valid
-                date_range = cached_data.get('date_range', {})
-                if 'end_date' in date_range:
-                    end_date = datetime.fromisoformat(date_range['end_date']).replace(tzinfo=pytz.UTC)
-                    # Set expiration at midnight after the last news day
-                    expiration_date = end_date + timedelta(days=1)
+                try:
+                    cached_data = json.load(cache_file)
                     
-                    if datetime.now(pytz.UTC) < expiration_date:
-                        return cached_data['news']
-                    
+                    # Check the last date in the cached data to determine if cache is still valid
+                    date_range = cached_data.get('date_range', {})
+                    if 'end_date' in date_range:
+                        end_date = datetime.fromisoformat(date_range['end_date']).replace(tzinfo=pytz.UTC)
+                        # Set expiration at midnight after the last news day
+                        expiration_date = end_date + timedelta(days=1)
+                        
+                        if datetime.now(pytz.UTC) < expiration_date:
+                            return cached_data['news']
+                except:
+                    return None 
         return None
 
     def _cache_news(self, news_data):
@@ -175,16 +179,15 @@ class NewsService:
         """Get relevant news based on the symbol and current time."""
         all_news = self.fetch_news()
         relevant_news = []
-        
+
         # Filter news based on the related countries and time window
         for news_item in all_news:
             news_event = EconomicNewsEvent(
                 title=news_item['title'],
                 country=news_item['country'],
-                date=parser.isoparse(news_item['date']).astimezone(pytz.UTC),  # Parse and convert to UTC
+                date=parser.isoparse(news_item['date']),
                 impact=news_item.get('impact', '')  # Fetch the 'impact' field safely
             )
-            if symbol.is_news_relevant(news_event) and news_event.is_within_time_margin(current_time):
+            if symbol.is_news_relevant(news_event.country) and news_event.is_within_time_margin(current_time):
                 relevant_news.append(news_event)
-        
         return relevant_news

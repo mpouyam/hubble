@@ -119,9 +119,9 @@ signaller = SRSignaller(
         verified_symbol.get_name(),
         0.0001,
         0.0001,
-        3,
-        5,
-        10
+        2,
+        15,
+        3
     ),
     platform
 )

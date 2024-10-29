@@ -44,7 +44,6 @@ class TraderManager(TickListener):
 
         should_trade = self.trade_determiner.is_safe_to_trade(self.symbol , self.clock)
         if not should_trade:
-            self.logger.error(f"Invalid Signal Received But Not Good For Trade")
             return
         
         
