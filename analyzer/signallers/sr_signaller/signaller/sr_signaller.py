@@ -111,7 +111,8 @@ class SRSignaller(Signaller):
             sr_signal = (
                 SRSignal(
                     datetime.now(),
-                    SRSignalType.SUPPORT_BREAK if break_sup else SRSignalType.RESISTANCE_BREAK
+                    SRSignalType.SUPPORT_BREAK if break_sup else SRSignalType.RESISTANCE_BREAK,
+                    self.get_signaller_name()
                 )
                     .set_min_touches(self.config.min_touches)
                     .set_actual_touches(supp_touches + res_touches)
@@ -133,4 +134,4 @@ class SRSignaller(Signaller):
         self.set_ready(True)
 
     def get_signaller_name(self) -> str:
-        return 'SR Signaller'
+        return f'{self.config.symbol}:{self.config.candle_count}:{self.config.candle_frame}'

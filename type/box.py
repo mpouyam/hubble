@@ -11,3 +11,4 @@ class BoxSignal(StrEnum):
 
 class BoxSignalData(TypedDict):
     direction: OrderDirection
+    signaller_name: str

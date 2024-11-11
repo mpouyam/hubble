@@ -15,6 +15,7 @@ class OrderConfig:
     static_tp: Optional[Dict[int, float]]
     static_sl: Optional[Dict[int, float]]
     growth_factor: float
+    signaller_name:str
 
 
 class OrderConfigCalculator:
@@ -30,6 +31,7 @@ class OrderConfigCalculator:
         self.static_tp = orderConfig.static_tp
         self.static_sl = orderConfig.static_sl
         self.growth_factor = orderConfig.growth_factor
+        self.signaller_name = orderConfig.signaller_name
 
     def set_first_direction(self, direction: OrderDirection) -> None:
         self.first_direction = direction
@@ -45,7 +47,8 @@ class OrderConfigCalculator:
             direction=direction,
             volume=volume,
             sl=sl,
-            tp=tp
+            tp=tp,
+            signaller_name= self.signaller_name
         )
 
     def __calculate_direction(self, orderNumber: int) -> OrderDirection:

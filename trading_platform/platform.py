@@ -97,7 +97,7 @@ class Platform:
             }
 
     @staticmethod
-    def place_buy_order(symbol, vol, price, sl, tp):
+    def place_buy_order(symbol, vol, price, sl, tp , comment):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -108,6 +108,7 @@ class Platform:
             "type": mt5.ORDER_TYPE_BUY,
             "price": price,
             "type_time": mt5.ORDER_TIME_GTC,
+            "comment": comment
         }
 
         result = mt5.order_send(request)
@@ -128,7 +129,7 @@ class Platform:
             }
 
     @staticmethod
-    def place_sell_order(symbol, vol, price, sl, tp):
+    def place_sell_order(symbol, vol, price, sl, tp , comment):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -139,6 +140,7 @@ class Platform:
             "type": mt5.ORDER_TYPE_SELL,
             "price": price,
             "type_time": mt5.ORDER_TIME_GTC,
+            "comment": comment
         }
 
         result = mt5.order_send(request)

@@ -34,10 +34,12 @@ class OrderRecipes:
     volume: float
     sl: float
     tp: float
+    signaller_name:str
 
 
 @dataclass
 class Order:
+    signaller: str
     symbol: str
     pip_unit: float
     status: OrderStatus

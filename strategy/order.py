@@ -48,6 +48,7 @@ class OrderManager:
         self.volume = orderRecipes.volume
         self.tp_limit = orderRecipes.tp
         self.sl_limit = orderRecipes.sl
+        self.signaller_name = orderRecipes.signaller_name
 
         self.ticket = None
         self.price = None
@@ -84,6 +85,7 @@ class OrderManager:
     def get_prototype(self) -> Order:
         if self._state is None:
             return Order(
+                signaller=self.signaller_name,
                 symbol=self.symbol,
                 pip_unit=self.pip_unit,
                 ticket=self.ticket,
@@ -177,6 +179,8 @@ class Placing(OrderState):
         symbol = self._order.symbol
         volume = self._order.volume
         direction = self._order.direction
+        signaller = self.order_manager.signaller_name
+
         action = None
 
         if direction == OrderDirection.BUY:
@@ -185,7 +189,7 @@ class Placing(OrderState):
         elif direction == OrderDirection.SELL:
             action = self.order_manager.provider.place_sell_order
 
-        result = action(symbol, volume, price, sl, tp)
+        result = action(symbol, volume, price, sl, tp , signaller )
 
         if result["done"]:
             self.order_manager.logger.info("Active order placed successfully !")

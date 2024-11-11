@@ -91,7 +91,7 @@ bean_rules_config = RulesConfig(
     after_news_minute=after_news_minute
 )
 
-trade_decision_service = TradeDecisionService(news_service , bean_rules_config)
+trade_decision_service = TradeDecisionService(news_service , bean_rules_config , global_logger)
 
 bean_config_calculator = TraderConfigCalculator({
     'symbol': verified_symbol.name,
@@ -117,17 +117,54 @@ publisher.start()
 signaller = SRSignaller(
     SRSignallerConfig(
         verified_symbol.get_name(),
-        0.0001,
-        0.0001,
+        0.0002,
+        0.0002,
         2,
-        15,
-        3
+        1,
+        20 
     ),
     platform
 )
 
 signaller.subscribe_handler(bean_strategy)
 signaller.start()
+
+
+
+signaller2 = SRSignaller(
+    SRSignallerConfig(
+        verified_symbol.get_name(),
+        0.0002,
+        0.0002,
+        2,
+        1,
+        60 
+    ),
+    platform
+)
+
+signaller2.subscribe_handler(bean_strategy)
+signaller2.start()
+
+
+signaller3 = SRSignaller(
+    SRSignallerConfig(
+        verified_symbol.get_name(),
+        0.0002,
+        0.0002,
+        2,
+        5,
+        22 
+    ),
+    platform
+)
+
+signaller3.subscribe_handler(bean_strategy)
+signaller3.start()
+
+
+
+
 
 # make main thread running
 if os.getenv("http_server"):

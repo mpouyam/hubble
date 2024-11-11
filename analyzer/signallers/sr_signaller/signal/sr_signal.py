@@ -9,8 +9,9 @@ class SRSignalType(StrEnum):
     RESISTANCE_BREAK = "RESISTANCE_BREAK"
 
 class SRSignal(Signal):
-    def __init__(self, signal_time: datetime, sr_signal_type: SRSignalType):
+    def __init__(self, signal_time: datetime, sr_signal_type: SRSignalType , name: str):
         super().__init__(signal_time)
+        self.name = name
         self.sr_signal_type = sr_signal_type
         self.close_price = None
         self.window_size = None
@@ -64,7 +65,9 @@ class SRSignal(Signal):
 
     def get_source(self):
         return 'MetaTrader5 Python API'
-
+    
+    def get_name(self):
+            return self.name
     
     def get_resistance_price(self):
         return self.resistance_price

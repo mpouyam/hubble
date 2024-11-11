@@ -39,6 +39,8 @@ class TraderManager(TickListener):
 
 
     def handle_signal(self, sr_signal: SRSignal):
+        self.logger.warning("Signal Received")
+
         if self.clock == 0: 
             return
 
@@ -48,7 +50,8 @@ class TraderManager(TickListener):
         
         
         trader_data = TraderSignalData(
-            direction= OrderDirection.BUY if sr_signal.get_sr_signal_type() == SRSignalType.RESISTANCE_BREAK else OrderDirection.SELL
+            direction= OrderDirection.BUY if sr_signal.get_sr_signal_type() == SRSignalType.RESISTANCE_BREAK else OrderDirection.SELL,
+            signaller_name= sr_signal.get_name()
         )
         
         self.on_signal(
@@ -112,14 +115,13 @@ class Listening(TraderState):
             if self.clock is None:
                 return
             
-            
-            should_work = self.trader_manager.time_manager.should_work(self.clock)
-            if should_work:
-                if self.trader_manager.box_manager is None:
-                    self.trader_manager.config_manager.set_direction(data.get("direction"))
-                    self.trader_manager.transition_to(Preparing())
-                else:
-                    self.trader_manager.transition_to(Processing())
+        if self.trader_manager.box_manager is None:
+            self.trader_manager.config_manager.set_direction(data.get("direction"))
+            self.trader_manager.config_manager.set_signaller_name(data.get("signaller_name"))
+
+            self.trader_manager.transition_to(Preparing())
+        else:
+            self.trader_manager.transition_to(Processing())
 
         return
 
@@ -133,7 +135,8 @@ class Preparing(TraderState):
         box_recipes, orders_recipes = self.trader_manager.config_manager.get_config()
         order_calculator = OrderConfigCalculator(orders_recipes)
         self.trader_manager.box_manager = BoxManager(
-            self.trader_manager.provider, self.trader_manager.logger,
+            self.trader_manager.provider, 
+            self.trader_manager.logger,
             box_recipes, order_calculator
         )
         self.trader_manager.transition_to(Processing())

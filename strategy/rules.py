@@ -5,9 +5,10 @@ from datetime import datetime, time
 import pytz
 
 class TradeDecisionService:
-    def __init__(self, news_service: NewsService , config: RulesConfig):
+    def __init__(self, news_service: NewsService , config: RulesConfig , logger):
         self.news_service = news_service
         self.config = config
+        self.logger = logger
 
     def is_safe_to_trade(self, symbol: Symbol, current_time: datetime) -> bool:
 
