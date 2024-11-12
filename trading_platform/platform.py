@@ -1,10 +1,10 @@
+from datetime import datetime
 from typing import Tuple
 
 import MetaTrader5 as mt5
 import pytz
-from datetime import datetime
 
-from config import PlatformConfig
+from configs import PlatformConfig
 
 
 class Platform:
@@ -97,7 +97,7 @@ class Platform:
             }
 
     @staticmethod
-    def place_buy_order(symbol, vol, price, sl, tp , comment):
+    def place_buy_order(symbol, vol, price, sl, tp, comment):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -129,7 +129,7 @@ class Platform:
             }
 
     @staticmethod
-    def place_sell_order(symbol, vol, price, sl, tp , comment):
+    def place_sell_order(symbol, vol, price, sl, tp, comment):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -245,4 +245,3 @@ class Platform:
             start_position
     ):
         return mt5.copy_rates_from_pos(symbol, timeframe, start_position, number_of_candles)
-

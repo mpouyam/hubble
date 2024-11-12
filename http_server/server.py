@@ -1,10 +1,12 @@
+import os
+
+import uvicorn
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from strategy import TraderManager
-from type import TraderSignal
+
 from backtest import back_test
-import uvicorn
-import os
+from internal_types import TraderSignal
+from strategy import TraderManager
 
 
 def api_key_auth(api_key: str = Header(...)):

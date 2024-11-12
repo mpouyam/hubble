@@ -15,6 +15,7 @@ class OrderConfig:
     static_tp: Optional[Dict[int, float]]
     static_sl: Optional[Dict[int, float]]
     growth_factor: float
+    signaller_name: str
 
 
 class OrderConfigCalculator:
@@ -30,6 +31,7 @@ class OrderConfigCalculator:
         self.static_tp = orderConfig.static_tp
         self.static_sl = orderConfig.static_sl
         self.growth_factor = orderConfig.growth_factor
+        self.signaller_name = orderConfig.signaller_name
 
     def set_first_direction(self, direction: OrderDirection) -> None:
         self.first_direction = direction
@@ -37,7 +39,7 @@ class OrderConfigCalculator:
     def get_config(self, orderNumber: int) -> OrderRecipes:
         direction = self.__calculate_direction(orderNumber)
         volume = self.__calculate_vol(orderNumber)
-        sl, tp = self.__calculate_sl_tp(orderNumber)
+        tp, sl = self.__calculate_sl_tp(orderNumber)
 
         return OrderRecipes(
             symbol=self.symbol,
@@ -45,7 +47,8 @@ class OrderConfigCalculator:
             direction=direction,
             volume=volume,
             sl=sl,
-            tp=tp
+            tp=tp,
+            signaller_name=self.signaller_name
         )
 
     def __calculate_direction(self, orderNumber: int) -> OrderDirection:
@@ -54,7 +57,7 @@ class OrderConfigCalculator:
         if direction == OrderDirection.BUY:
             return OrderDirection.BUY if orderNumber % 2 != 0 else OrderDirection.SELL
         else:
-            return OrderDirection.SELL if orderNumber % 2 == 0 else OrderDirection.BUY
+            return OrderDirection.SELL if orderNumber % 2 != 0 else OrderDirection.BUY
 
     def __calculate_vol(self, orderNumber: int) -> float:
         if self.static_vol and orderNumber in self.static_vol:

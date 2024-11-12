@@ -1,11 +1,13 @@
 import uuid
-from typing import List
-from config import BoxConfig, OrderConfigCalculator
-from .order import OrderManager
-from trading_platform import Platform
-from type import BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
-from utils import format_gmt_time
 from abc import ABC, abstractmethod
+from typing import List
+
+from configs import BoxConfig, OrderConfigCalculator
+from internal_types import BoxSignal, BoxSignalData, Order, OrderSignal, OrderErrorStatus, OrderStatus
+from trading_platform import Platform
+from utils import format_gmt_time
+from .order import OrderManager
+
 
 class BoxManager:
     _state: 'BoxState' = None
@@ -41,11 +43,13 @@ class BoxManager:
             self.logger.error(f"Invalid Signal Received: {signal}")
             return
         else:
-            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
+            self.logger.critical(
+                f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:
-        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
+        self.logger.info(
+            f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def get_data(self):
@@ -94,6 +98,7 @@ class BoxState(ABC):
     @abstractmethod
     def is_done(self) -> bool:
         pass
+
 
 class Preparing(BoxState):
 

@@ -1,12 +1,14 @@
-from config import TraderConfigCalculator, OrderConfigCalculator
+from abc import ABC, abstractmethod
+
+from analyzer.signallers.sr_signaller.signal import SRSignal, SRSignalType
+from configs import TraderConfigCalculator, OrderConfigCalculator
+from internal_types import TraderSignal, TraderSignalData, BoxSignal, BoxSignalData, OrderDirection
+from publisher import TickListener
 from repository import BoxRepositoryInterface
 from trading_platform import Platform
-from type import TraderSignal, TraderSignalData, BoxSignal , BoxSignalData,OrderDirection
 from .box import BoxManager
-from .rules import  TradeDecisionService
-from abc import ABC, abstractmethod
-from analyzer.signallers.sr_signaller.signal import SRSignal, SRSignalType 
-from publisher import TickListener
+from .rules import TradeDecisionService
+
 
 class TraderManager(TickListener):
     _state: 'TraderState' = None
@@ -37,23 +39,21 @@ class TraderManager(TickListener):
         self._state = state
         self._state.trader_manager = self
 
-
     def handle_signal(self, sr_signal: SRSignal):
         self.logger.warning("Signal Received")
 
-        if self.clock == 0: 
+        if self.clock == 0:
             return
 
-        should_trade = self.trade_determiner.is_safe_to_trade(self.symbol , self.clock)
+        should_trade = self.trade_determiner.is_safe_to_trade(self.symbol, self.clock)
         if not should_trade:
             return
-        
-        
+
         trader_data = TraderSignalData(
-            direction= OrderDirection.BUY if sr_signal.get_sr_signal_type() == SRSignalType.RESISTANCE_BREAK else OrderDirection.SELL,
-            signaller_name= sr_signal.get_name()
+            direction=OrderDirection.BUY if sr_signal.get_sr_signal_type() == SRSignalType.RESISTANCE_BREAK else OrderDirection.SELL,
+            signaller_name=sr_signal.get_name()
         )
-        
+
         self.on_signal(
             TraderSignal.RUN,
             trader_data
@@ -66,12 +66,14 @@ class TraderManager(TickListener):
             return
 
         else:
-            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
+            self.logger.critical(
+                f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:
         self.clock = tick[0]
-        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
+        self.logger.info(
+            f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def get_status(self) -> str:
@@ -114,7 +116,7 @@ class Listening(TraderState):
         if signal == TraderSignal.RUN:
             if self.clock is None:
                 return
-            
+
         if self.trader_manager.box_manager is None:
             self.trader_manager.config_manager.set_direction(data.get("direction"))
             self.trader_manager.config_manager.set_signaller_name(data.get("signaller_name"))
@@ -135,7 +137,7 @@ class Preparing(TraderState):
         box_recipes, orders_recipes = self.trader_manager.config_manager.get_config()
         order_calculator = OrderConfigCalculator(orders_recipes)
         self.trader_manager.box_manager = BoxManager(
-            self.trader_manager.provider, 
+            self.trader_manager.provider,
             self.trader_manager.logger,
             box_recipes, order_calculator
         )
@@ -151,7 +153,7 @@ class Processing(TraderState):
             self.trader_manager.should_stop = True
 
         if signal == TraderSignal.RUN:
-            self.trader_manager.box_manager.on_signal(BoxSignal.RESUME , BoxSignalData(direction=data['direction']))
+            self.trader_manager.box_manager.on_signal(BoxSignal.RESUME, BoxSignalData(direction=data['direction']))
 
         return
 

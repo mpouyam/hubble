@@ -1,9 +1,6 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Optional
-
-from strategy.order import OrderManager
 
 
 class OrderSignal(StrEnum):
@@ -37,10 +34,12 @@ class OrderRecipes:
     volume: float
     sl: float
     tp: float
+    signaller_name: str
 
 
 @dataclass
 class Order:
+    signaller: str
     symbol: str
     pip_unit: float
     status: OrderStatus
@@ -56,31 +55,3 @@ class Order:
     ended_at: Optional[str]
     error: Optional[str]
     error_status: OrderErrorStatus
-
-
-class OrderState(ABC):
-    _order_manager: OrderManager
-
-    @property
-    def order_manager(self) -> OrderManager:
-        return self._order_manager
-
-    @order_manager.setter
-    def order_manager(self, order_manager: OrderManager) -> None:
-        self._order_manager = order_manager
-
-    @abstractmethod
-    def on_tick(self, tick) -> None:
-        pass
-
-    @abstractmethod
-    def on_signal(self, signal: OrderSignal) -> None:
-        pass
-
-    @abstractmethod
-    def get_prototype(self) -> Order:
-        pass
-
-    @abstractmethod
-    def is_done(self) -> bool:
-        pass

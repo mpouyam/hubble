@@ -1,4 +1,5 @@
 from datetime import datetime
+
 import pytz
 
 
@@ -32,7 +33,3 @@ def format_gmt_time(timestamp=None):
 
     # Format the time string
     return current_time_gmt.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def format_datetime_tuple(dt: datetime):
-    return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)

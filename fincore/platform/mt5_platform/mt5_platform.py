@@ -1,16 +1,11 @@
-from fincore.platform.platform import Platform
-
-
-
-
-
+from datetime import datetime
 from typing import Tuple
 
 import MetaTrader5 as mt5
 import pytz
-from datetime import datetime
 
-from config import PlatformConfig
+from configs import PlatformConfig
+from fincore.platform.platform import Platform
 
 
 class Mt5Platform(Platform):
@@ -19,8 +14,6 @@ class Mt5Platform(Platform):
 
     def get_platform_name(self):
         return 'MetaTrader 5'
-
-
 
     instance: 'Platform'
     platform_config: PlatformConfig

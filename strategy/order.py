@@ -1,9 +1,9 @@
+from abc import ABC, abstractmethod
 from dataclasses import replace
 from typing import Tuple
-from abc import ABC, abstractmethod
 
+from internal_types import OrderRecipes, OrderErrorStatus, OrderStatus, OrderSignal, Order, OrderDirection
 from trading_platform import Platform
-from type import OrderRecipes, OrderErrorStatus, OrderStatus, OrderSignal, Order, OrderDirection
 from utils import format_gmt_time
 
 
@@ -68,7 +68,8 @@ class OrderManager:
         self._state.order_manager = self
 
     def on_tick(self, tick) -> None:
-        self.logger.info(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
+        self.logger.info(
+            f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
         self._state.on_tick(tick)
 
     def on_signal(self, signal: OrderSignal) -> None:
@@ -76,7 +77,8 @@ class OrderManager:
             self.logger.error(f"Invalid Signal Received: {signal}")
             return
         else:
-            self.logger.critical(f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
+            self.logger.critical(
+                f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal}")
             self._state.on_signal(signal)
 
     def is_done(self) -> bool:
@@ -104,7 +106,6 @@ class OrderManager:
             )
         else:
             return self._state.get_prototype()
-
 
 
 class Placing(OrderState):
@@ -189,7 +190,7 @@ class Placing(OrderState):
         elif direction == OrderDirection.SELL:
             action = self.order_manager.provider.place_sell_order
 
-        result = action(symbol, volume, price, sl, tp , signaller )
+        result = action(symbol, volume, price, sl, tp, signaller)
 
         if result["done"]:
             self.order_manager.logger.info("Active order placed successfully !")
@@ -239,7 +240,7 @@ class Modifying(OrderState):
                 self.try_count += 1
                 return
             else:
-                self.order_manager.logger.error("Maximum Retries Reached")
+                self.order_manager.logger.error(f'Maximum Retries Reached:{e}')
                 self._order.error = e
                 self._order.error_status = OrderErrorStatus.MODIFYING
                 self.order_manager.transition_to(Processing(self._order))

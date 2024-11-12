@@ -1,11 +1,13 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
-from config import BoxConfig
-from type import Order
 import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, asdict, is_dataclass
 from enum import Enum
+from typing import Any, Dict, List
 from uuid import UUID
-from dataclasses import dataclass, asdict,is_dataclass
+
+from configs import BoxConfig
+from internal_types import Order
+
 
 @dataclass
 class BoxData:
@@ -15,6 +17,7 @@ class BoxData:
     ended_at: str
     orders: List[Order]
     config: BoxConfig
+
 
 class BoxRepositoryInterface(ABC):
     @abstractmethod
@@ -63,4 +66,3 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, Exception):
             return str(obj)
         return super().default(obj)
-

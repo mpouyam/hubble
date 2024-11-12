@@ -5,7 +5,6 @@ class PlatformConfig:
             self.server = config_dict.get('server')
             self.login = config_dict.get('login')
             self.password = config_dict.get('password')
-            self.symbol = config_dict.get('symbol')
 
     def set_path(self, path):
         self.path = path
@@ -34,19 +33,3 @@ class PlatformConfig:
 
     def get_password(self):
         return self.password
-
-    def set_symbol(self, symbol):
-        self.symbol = symbol
-        return self
-
-    def get_symbol(self):
-        return self.symbol
-
-    def get_config(self) -> dict:
-        return {
-            'path': self.get_path(),
-            'server': self.get_server(),
-            'login': self.get_login(),
-            'password': self.get_password(),
-            'symbol': self.get_symbol()
-        }

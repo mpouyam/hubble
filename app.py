@@ -1,16 +1,19 @@
-from config import RulesConfig, TraderConfigCalculator
-from news import NewsService
-from trading_platform import Platform, PlatformConfig
-from publisher import Publisher, PublisherConfig
-from strategy import TraderManager, TradeDecisionService
-from type import Symbol
-from utils import logger
-from repository import JSONBoxRepository
-import time
-from dotenv import load_dotenv
-from http_server import HubbleHttpController
 import os
+import time
+
+from dotenv import load_dotenv
+
 from analyzer.signallers.sr_signaller.signaller.sr_signaller import SRSignaller, SRSignallerConfig
+from configs import RulesConfig, TraderConfigCalculator
+from http_server import HubbleHttpController
+from internal_types import Symbol
+from news import NewsService
+from publisher import Publisher, PublisherConfig
+from repository import JSONBoxRepository
+from strategy import TraderManager, TradeDecisionService
+from trading_platform import Platform, PlatformConfig
+from utils import logger
+
 load_dotenv(override=True)
 
 # LOAD CONFIGS :
@@ -40,7 +43,7 @@ sl_limit = int(os.getenv('sl_limit'))
 tp_limit = int(os.getenv('tp_limit'))
 static_vol = {}
 static_tp = {
-    1: 6
+    1: 3
 }
 static_sl = {}
 growth_factor = float(os.getenv('growth_factor'))
@@ -83,7 +86,6 @@ global_repository = JSONBoxRepository("repo.json")
 # Initialize the strategy
 news_service = NewsService(news_service_base_url)
 
-
 bean_rules_config = RulesConfig(
     symbol=verified_symbol,
     default_working_hours=default_working_hours,
@@ -91,7 +93,7 @@ bean_rules_config = RulesConfig(
     after_news_minute=after_news_minute
 )
 
-trade_decision_service = TradeDecisionService(news_service , bean_rules_config , global_logger)
+trade_decision_service = TradeDecisionService(news_service, bean_rules_config, global_logger)
 
 bean_config_calculator = TraderConfigCalculator({
     'symbol': verified_symbol.name,
@@ -106,7 +108,8 @@ bean_config_calculator = TraderConfigCalculator({
     'max_order': max_order
 })
 
-bean_strategy = TraderManager(platform,verified_symbol, global_logger, trade_decision_service, global_repository, bean_config_calculator)
+bean_strategy = TraderManager(platform, verified_symbol, global_logger, trade_decision_service, global_repository,
+                              bean_config_calculator)
 
 # Add the strategy as a tick listener
 publisher.add_tick_listener(bean_strategy)
@@ -119,9 +122,9 @@ signaller = SRSignaller(
         verified_symbol.get_name(),
         0.0002,
         0.0002,
-        2,
-        1,
-        20 
+        4,
+        "1m",
+        25
     ),
     platform
 )
@@ -129,16 +132,14 @@ signaller = SRSignaller(
 signaller.subscribe_handler(bean_strategy)
 signaller.start()
 
-
-
 signaller2 = SRSignaller(
     SRSignallerConfig(
         verified_symbol.get_name(),
         0.0002,
         0.0002,
-        2,
-        1,
-        60 
+        4,
+        "5m",
+        22
     ),
     platform
 )
@@ -146,15 +147,14 @@ signaller2 = SRSignaller(
 signaller2.subscribe_handler(bean_strategy)
 signaller2.start()
 
-
 signaller3 = SRSignaller(
     SRSignallerConfig(
         verified_symbol.get_name(),
         0.0002,
         0.0002,
         2,
-        5,
-        22 
+        "1h",
+        3
     ),
     platform
 )
@@ -162,14 +162,9 @@ signaller3 = SRSignaller(
 signaller3.subscribe_handler(bean_strategy)
 signaller3.start()
 
-
-
-
-
 # make main thread running
 if os.getenv("http_server"):
     HubbleHttpController(bean_strategy, port=int(os.getenv("http_port"))).run()
 else:
     while True:
         time.sleep(2)
-

@@ -1,11 +1,12 @@
 from typing import Optional, Dict, Tuple
 
-from configs import BoxConfig, OrderConfig
 from internal_types import OrderDirection
+from .box import BoxConfig
+from .order import OrderConfig
 
 
 class TraderConfigCalculator:
-    def __init__(self, config_dict: dict = None):
+    def __init__(self, config_dict: dict):
         self.symbol: str = config_dict["symbol"]
         self.point: float = config_dict["point"]
         self.sl_limit: float = config_dict["sl_limit"]
@@ -19,10 +20,15 @@ class TraderConfigCalculator:
         self.max_order: int = config_dict["max_order"]
 
         self.first_direction: Optional[OrderDirection] = None
+        self.signaller_name = ""
 
     def set_direction(self, direction: OrderDirection) -> OrderDirection:
         self.first_direction = direction
         return direction
+
+    def set_signaller_name(self, signaller_name: str) -> str:
+        self.signaller_name = signaller_name
+        return signaller_name
 
     def get_config(self) -> Tuple[BoxConfig, OrderConfig]:
         if self.first_direction is None:
@@ -42,7 +48,8 @@ class TraderConfigCalculator:
             static_vol=self.static_vol,
             static_tp=self.static_tp,
             static_sl=self.static_sl,
-            growth_factor=self.growth_factor
+            growth_factor=self.growth_factor,
+            signaller_name=self.signaller_name
         )
 
         return box_recipes, orders_recipes
@@ -53,3 +60,6 @@ class TraderConfigCalculator:
 
     def get_symbol(self) -> str:
         return self.symbol
+
+    def get_signaller_name(self) -> str:
+        return self.signaller_name

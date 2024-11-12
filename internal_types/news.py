@@ -1,6 +1,7 @@
 from enum import Enum
 
-class ImpactLevel(Enum):
+
+class NewsImpactLevel(Enum):
     LOW = 'Low'
     MEDIUM = 'Medium'
     HIGH = 'High'
