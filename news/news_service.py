@@ -22,14 +22,16 @@ class EconomicNewsEvent:
         except ValueError:
             self.impact = None  # Handle the case where the impact string is not valid
 
-    def is_within_time_margin(self, current_time: datetime, start_margin_minutes: int = 30,
+    def is_within_time_margin(self, current_time: datetime, start_margin_minutes: int = 20,
                               end_margin_minutes=5) -> bool:
         """Check if the current time falls within the margin window of this news event."""
-        dt2 = self.date.astimezone(timezone.utc)
-        margin_start = dt2 - timedelta(minutes=start_margin_minutes)
-        margin_end = dt2 + timedelta(minutes=end_margin_minutes)
 
-        return margin_start <= current_time <= margin_end
+        ct = current_time + timedelta(minutes=90)
+        dt = self.date.astimezone(timezone.utc) + timedelta(minutes=210)
+        margin_start = dt - timedelta(minutes=start_margin_minutes)
+        margin_end = dt + timedelta(minutes=end_margin_minutes)
+       
+        return margin_start <= ct <= margin_end
 
 
 # --- News Service ---
@@ -101,9 +103,10 @@ class NewsService:
             news_event = EconomicNewsEvent(
                 title=news_item['title'],
                 country=news_item['country'],
-                date=parser.isoparse(news_item['date']),
+                date=datetime.fromisoformat(news_item['date']),
                 impact=news_item.get('impact', '')  # Fetch the 'impact' field safely
             )
             if symbol.is_news_relevant(news_event.country) and news_event.is_within_time_margin(current_time):
                 relevant_news.append(news_event)
+        
         return relevant_news

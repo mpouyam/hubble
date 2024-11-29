@@ -68,12 +68,12 @@ class TraderManager(TickListener):
         else:
             self.logger.critical(
                 f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Signal : {signal} \n Direction: {data.get("direction")}")
+            
+            self.config_manager.set_signaller_name(f'{data.get("signaller_name")}:{data.get("direction")}')
             self._state.on_signal(signal, data)
 
     def on_tick(self, tick) -> None:
-        self.clock = tick[0]
-        self.logger.info(
-            f"\n Layer: {self.__class__.__name__}\n State: {self._state.__class__.__name__}\n Tick : {tick}")
+        self.clock = int(tick[0])
         self._state.on_tick(tick)
 
     def get_status(self) -> str:
@@ -107,7 +107,11 @@ class Listening(TraderState):
     clock: int = None
 
     def on_tick(self, tick) -> None:
-        self.clock = tick[0]
+        self.clock = int(tick[0])
+
+        self.trader_manager.logger.info(
+            f"\n Layer: {self.trader_manager.__class__.__name__}\n State: {self.__class__.__name__}\n Tick : {tick}")
+
 
     def on_signal(self, signal: TraderSignal, data: TraderSignalData) -> None:
         if signal == TraderSignal.SHUT_DOWN:
@@ -119,7 +123,6 @@ class Listening(TraderState):
 
         if self.trader_manager.box_manager is None:
             self.trader_manager.config_manager.set_direction(data.get("direction"))
-            self.trader_manager.config_manager.set_signaller_name(data.get("signaller_name"))
 
             self.trader_manager.transition_to(Preparing())
         else:
@@ -139,7 +142,9 @@ class Preparing(TraderState):
         self.trader_manager.box_manager = BoxManager(
             self.trader_manager.provider,
             self.trader_manager.logger,
-            box_recipes, order_calculator
+            box_recipes, order_calculator ,
+            self.trader_manager.trade_determiner,
+            self.trader_manager.symbol
         )
         self.trader_manager.transition_to(Processing())
 
@@ -153,6 +158,7 @@ class Processing(TraderState):
             self.trader_manager.should_stop = True
 
         if signal == TraderSignal.RUN:
+            self.trader_manager.config_manager.set_signaller_name(f'{data.get("signaller_name")}:{data.get("direction")}')
             self.trader_manager.box_manager.on_signal(BoxSignal.RESUME, BoxSignalData(direction=data['direction']))
 
         return

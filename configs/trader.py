@@ -19,19 +19,23 @@ class TraderConfigCalculator:
         self.pause_times: int = config_dict["pause_times"]
         self.max_order: int = config_dict["max_order"]
 
-        self.first_direction: Optional[OrderDirection] = None
+        self.directions_order: Dict[int , OrderDirection] | None = None
         self.signaller_name = ""
 
     def set_direction(self, direction: OrderDirection) -> OrderDirection:
-        self.first_direction = direction
-        return direction
+        first = direction
+        second = OrderDirection.SELL if direction == OrderDirection.BUY else OrderDirection.BUY
+        self.directions_order = {
+            1:first,
+            2:second
+        }
 
     def set_signaller_name(self, signaller_name: str) -> str:
         self.signaller_name = signaller_name
         return signaller_name
 
     def get_config(self) -> Tuple[BoxConfig, OrderConfig]:
-        if self.first_direction is None:
+        if self.directions_order is None:
             raise ValueError("Direction is not defined")
 
         box_recipes = BoxConfig(
@@ -42,7 +46,7 @@ class TraderConfigCalculator:
         orders_recipes = OrderConfig(
             symbol=self.symbol,
             point=self.point,
-            first_direction=self.first_direction,
+            direction_order=self.directions_order,
             sl_limit=self.sl_limit,
             tp_limit=self.tp_limit,
             static_vol=self.static_vol,

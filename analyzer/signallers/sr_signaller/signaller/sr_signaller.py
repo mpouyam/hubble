@@ -26,6 +26,7 @@ class SRSignallerConfig:
         self.outer_margin = outer_margin
         self.min_touches = min_touches
         self.candle_count = candle_count
+        self.time_frame = candle_frame
         self.timeframe_map = {
             "1m": mt5.TIMEFRAME_M1,
             "2m": mt5.TIMEFRAME_M2,
@@ -155,4 +156,4 @@ class SRSignaller(Signaller):
         self.set_ready(True)
 
     def get_signaller_name(self) -> str:
-        return f'{self.config.symbol}:{self.config.candle_count}:{self.config.candle_frame}'
+        return f'{self.config.candle_count}:{self.config.time_frame}'

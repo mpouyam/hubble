@@ -126,7 +126,7 @@ class Placing(OrderState):
                 self.order_manager.transition_to(Final(self._order))
 
     def on_tick(self, tick) -> None:
-        ts = tick[0]
+        ts = int(tick[0])
         bid = tick[1]
         ask = tick[2]
 
@@ -137,12 +137,13 @@ class Placing(OrderState):
             tp, sl = self.__calculate_limit_prices(price)
             active_order = self.__place_order(price, sl, tp)
             self.__modify_inward_order(active_order["ticket"], active_order["price"], tp, sl, ts)
+            self.order_manager.transition_to(Processing(self._order))
 
             # check if there is a difference between actual price and placed price
-            if active_order["price"] != price:
-                self.order_manager.transition_to(Modifying(self._order))
-            else:
-                self.order_manager.transition_to(Processing(self._order))
+            # if active_order["price"] != price:
+            #     self.order_manager.transition_to(Modifying(self._order))
+            # else:
+            #     self.order_manager.transition_to(Processing(self._order))
 
         except Exception as e:
             if self.try_count < 9:
@@ -158,7 +159,6 @@ class Placing(OrderState):
         return self._order
 
     def __calculate_limit_prices(self, price: float) -> Tuple[float, float]:
-
         sl_pip = self._order.pip_unit * self._order.sl_limit
         tp_pip = self._order.pip_unit * self._order.tp_limit
 
@@ -173,7 +173,8 @@ class Placing(OrderState):
             sl_price = price - sl_pip
             tp_price = price + tp_pip
 
-        return round(tp_price, 5), round(sl_price, 5)
+        return tp_price , sl_price
+        # return round(tp_price, 5), round(sl_price, 5)
 
     def __place_order(self, price: float, sl: float, tp: float):
 
@@ -263,8 +264,9 @@ class Modifying(OrderState):
         elif self._order.direction == OrderDirection.BUY:
             sl_price = self._order.price - sl_pip
             tp_price = self._order.price + tp_pip
-
-        return round(tp_price, 5), round(sl_price, 5)
+        
+        return tp_price , sl_price
+        # return round(tp_price, 5), round(sl_price, 5)
 
     def __modify_outward_order(self, sl: float, tp: float) -> None:
         ticket = self.order_manager.ticket
@@ -411,7 +413,7 @@ class Final(OrderState):
         return
 
     def on_tick(self, tick) -> None:
-        self._order.ended_at = format_gmt_time(tick[0])
+        self._order.ended_at = format_gmt_time(int(tick[0]))
         self.finished = True
         return
 

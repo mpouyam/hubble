@@ -8,7 +8,7 @@ from internal_types import OrderDirection, OrderRecipes
 class OrderConfig:
     symbol: str
     point: float
-    first_direction: OrderDirection
+    direction_order: Dict[int , OrderDirection]
     sl_limit: float
     tp_limit: float
     static_vol: Optional[Dict[int, float]]
@@ -21,10 +21,9 @@ class OrderConfig:
 class OrderConfigCalculator:
 
     def __init__(self, orderConfig: OrderConfig) -> None:
-
         self.symbol = orderConfig.symbol
         self.point = orderConfig.point
-        self.first_direction = orderConfig.first_direction
+        self.directions_order = orderConfig.direction_order
         self.sl_limit = orderConfig.sl_limit
         self.tp_limit = orderConfig.tp_limit
         self.static_vol = orderConfig.static_vol
@@ -33,11 +32,8 @@ class OrderConfigCalculator:
         self.growth_factor = orderConfig.growth_factor
         self.signaller_name = orderConfig.signaller_name
 
-    def set_first_direction(self, direction: OrderDirection) -> None:
-        self.first_direction = direction
-
-    def get_config(self, orderNumber: int) -> OrderRecipes:
-        direction = self.__calculate_direction(orderNumber)
+    def get_config(self, orderNumber: int, direction:OrderDirection = None) -> OrderRecipes:
+        direction = self.__calculate_direction(orderNumber , direction)
         volume = self.__calculate_vol(orderNumber)
         tp, sl = self.__calculate_sl_tp(orderNumber)
 
@@ -51,13 +47,20 @@ class OrderConfigCalculator:
             signaller_name=self.signaller_name
         )
 
-    def __calculate_direction(self, orderNumber: int) -> OrderDirection:
-        direction = self.first_direction
+    def __calculate_direction(self, orderNumber: int , direction:OrderDirection = None) -> OrderDirection:
+        which_direction = 1 if orderNumber % 2 != 0 else 2
+        detected_direction = self.directions_order[which_direction]
 
-        if direction == OrderDirection.BUY:
-            return OrderDirection.BUY if orderNumber % 2 != 0 else OrderDirection.SELL
+        if not direction:
+            return detected_direction
+        elif direction == detected_direction:
+            return detected_direction
         else:
-            return OrderDirection.SELL if orderNumber % 2 != 0 else OrderDirection.BUY
+            first = self.directions_order[1]
+            self.directions_order[1] =  self.directions_order[2]   
+            self.directions_order[2] = first
+            return direction
+
 
     def __calculate_vol(self, orderNumber: int) -> float:
         if self.static_vol and orderNumber in self.static_vol:
